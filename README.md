@@ -32,6 +32,8 @@ Case 編號 notebook，每個 Case 都自成一個可獨立在 Colab 執行的�
 - ✅ Case-05：二層對稱剛架（先前對話已完成，待搬入本專案重新包裝）
 * [Case-01：一次靜不定梁 (propped cantilever) ](notebooks/Case-01-propped-cantilever.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-01-propped-cantilever.ipynb)
+* [Case-01：wget版本](notebooks/Case-01-propped-cantilever-wget.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-01-propped-cantilever-wget.ipynb)
 * [Case-02 二次靜不定連續梁 ](notebooks/Case-02-two-span-beam.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-02-two-span-beam.ipynb)
 
