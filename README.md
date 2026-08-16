@@ -1,4 +1,7 @@
 # slope_deflection_framework
+[![Execute notebook & verify results](https://github.com/zhixiu0223/slope_deflection_framework/actions/workflows/run-notebooks.yml/badge.svg)](https://github.com/zhixiu0223/slope_deflection_framework/actions/workflows/run-notebooks.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 傾角變位法教學專案，架構參照 [pyfem-plastic-hinge](https://github.com/zhixiu0223/pyfem-plastic-hinge)：
 Case 編號 notebook，每個 Case 都自成一個可獨立在 Colab 執行的教學單元，
