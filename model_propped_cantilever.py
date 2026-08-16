@@ -43,10 +43,10 @@ class PropChedCantileverProblem:
             ax.annotate('', xy=(x, 0.05), xytext=(x, 0.45),
                         arrowprops=dict(arrowstyle='->', color='red', lw=1.3))
         ax.text(L / 2, 0.6, f'$w = {self.w}$ kN/m', color='red', ha='center', fontsize=11)
-        ax.text(L / 2, -0.9, r'$\theta_B$', color='purple', fontsize=13, ha='center')
         ax.annotate('', xy=(L - 0.3, -0.75), xytext=(L + 0.3, -0.75),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
+        ax.text(L, -1.05, r'$\theta_B$', color='purple', fontsize=13, ha='center')
         ax.set_xlim(-1.5, L + 1.5)
         ax.set_ylim(-1.3, 1.0)
         ax.set_aspect('equal')

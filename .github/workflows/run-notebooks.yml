@@ -1,0 +1,59 @@
+name: Re-run all notebooks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  execute-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jupyter nbconvert numpy sympy matplotlib anastruct
+
+      - name: Execute every notebook in notebooks/
+        run: |
+          for nb in notebooks/*.ipynb; do
+            echo "=== Running $nb ==="
+            jupyter nbconvert --to notebook --execute --inplace "$nb" \
+              --ExecutePreprocessor.timeout=300
+          done
+
+      - name: Fail if any notebook produced an error cell
+        run: |
+          python - <<'PYEOF'
+          import json, glob, sys
+          failed = False
+          for path in glob.glob("notebooks/*.ipynb"):
+              nb = json.load(open(path, encoding="utf-8"))
+              for cell in nb["cells"]:
+                  for out in cell.get("outputs", []):
+                      if out.get("output_type") == "error":
+                          print(f"ERROR in {path}: {out.get('ename')} {out.get('evalue')}")
+                          failed = True
+          if failed:
+              sys.exit(1)
+          print("All notebooks executed with no errors.")
+          PYEOF
+
+      - name: Commit re-executed notebooks (only on push to main)
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add notebooks/*.ipynb
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: 自動重跑 notebooks 並更新輸出 [skip ci]"
+          git push
