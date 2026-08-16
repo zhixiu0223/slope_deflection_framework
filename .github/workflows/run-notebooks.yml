@@ -1,8 +1,5 @@
 name: Re-run all notebooks
 
-permissions:
-  contents: write
-
 on:
   push:
     branches: [main]
@@ -51,12 +48,3 @@ jobs:
               sys.exit(1)
           print("All notebooks executed with no errors.")
           PYEOF
-
-      - name: Commit re-executed notebooks (only on push to main)
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add notebooks/*.ipynb
-          git diff --quiet && git diff --staged --quiet || git commit -m "chore: 自動重跑 notebooks 並更新輸出 [skip ci]"
-          git push
