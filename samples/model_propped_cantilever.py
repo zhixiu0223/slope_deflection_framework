@@ -2,7 +2,10 @@ import numpy as np
 import sympy as sp
 
 
-class PropChedCantileverProblem:
+from sd_framework import SlopeDeflectionProblem
+
+
+class PropChedCantileverProblem(SlopeDeflectionProblem):
     """
     Case-01：一次靜不定梁 (Propped Cantilever Beam)
     A端固定 (theta_A=0)，B端滾支承 (M_BA=0，可自由轉動)，梁上承受均佈載重 w。
@@ -74,6 +77,105 @@ class PropChedCantileverProblem:
         R_A = 5 * w * L / 8
         R_B = 3 * w * L / 8
         return {'R_A (kN, 固定端反力)': R_A, 'R_B (kN, 滾支承反力)': R_B}
+
+    def teaching_breakdown(self, moments_val, reactions, solution):
+        L, w = self.L, self.w
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        r_a = reactions['R_A (kN, 固定端反力)']
+        r_b = reactions['R_B (kN, 滾支承反力)']
+        FEM_AB, FEM_BA = w * L**2 / 12, -w * L**2 / 12
+        C1 = (0 - m_ab - 0.5 * w * L**2) / L  # 剪力函數係數 (從A端起算)
+        x_star = -C1 / w
+        m_star = m_ab + C1 * x_star + 0.5 * w * x_star**2
+
+        return [
+            {
+                'title': '列出桿端彎矩方程式',
+                'problem': f'一根梁 A 端固定、B 端滾支承，跨度 L={L} m，'
+                           f'承受均佈載重 w={w} kN/m，試以傾角變位法列出 '
+                           r'$M_{AB}, M_{BA}$ 的表達式。',
+                'concept': '固定端 θ_A=0，B 端轉角 θ_B 未知；沒有側移(ψ=0)。'
+                           '均佈載重的固定端彎矩(FEM)近端正、遠端負，這是套用'
+                           '一般式前要先查出來的兩個常數。',
+                'formula': r'$M_{ij}=\frac{2EI}{L}(2\theta_i+\theta_j-3\psi)+FEM_{ij}, '
+                           r'\quad FEM_{AB}=\frac{wL^2}{12},\ FEM_{BA}=-\frac{wL^2}{12}$',
+                'substitution': f'L={L}, w={w} → FEM_AB=+{FEM_AB:.1f}, FEM_BA={FEM_BA:.1f}；'
+                                r'$\theta_A=0, \psi=0$',
+                'answer': (rf'$M_{{AB}}=\frac{{2EI}}{{{L}}}\theta_B+{FEM_AB:.1f}$'
+                           rf', $M_{{BA}}=\frac{{2EI}}{{{L}}}(2\theta_B){FEM_BA:+.1f}$'),
+                'keywords': ['傾角變位法一般式', 'FEM', '固定端彎矩', 'θ_A=0', 'ψ=0', '2EI/L'],
+                'grading': [
+                    ('寫出正確的一般式', 2),
+                    ('FEM_AB, FEM_BA 正負號正確', 2),
+                    ('正確代入 θ_A=0', 1),
+                    ('最終兩式係數與常數項正確', 2),
+                ],
+            },
+            {
+                'title': '求解未知數 θ_B',
+                'problem': '利用 B 端滾支承不能承受彎矩的邊界條件，求 θ_B。',
+                'concept': '滾支承=鉸接、不傳遞彎矩，所以 M_BA=0 這個邊界條件本身'
+                           '就是唯一需要的方程式(跟「節點力矩平衡」是同一類型的方程式，'
+                           '只是這裡只接了一根桿件)。',
+                'formula': r'$M_{BA}=0$',
+                'substitution': f'代入第1小題的 M_BA 表達式',
+                'answer': rf'$\theta_B=\dfrac{{{-FEM_BA:.1f}}}{{2EI/{L}}}=\dfrac{{90}}{{EI}}$',
+                'keywords': ['邊界條件', 'M_BA=0', '滾支承不傳彎矩'],
+                'grading': [
+                    ('正確寫出邊界條件方程式', 2),
+                    ('正確解出 θ_B', 2),
+                ],
+            },
+            {
+                'title': '回代求桿端彎矩數值',
+                'problem': '將 θ_B 代回，求 M_AB、M_BA 的實際數值。',
+                'concept': '這一步 EI 會自動消掉(因為 θ_B 本身跟 1/EI 成正比)，這是'
+                           '靜不定結構用位移法求解的一個特徵——只要材料是均質的單一 EI，'
+                           '最終彎矩值就跟 EI 大小無關，只跟相對剛度分布有關。',
+                'formula': '直接代入第1小題的式子',
+                'substitution': r'$\theta_B=90/EI$',
+                'answer': rf'$M_{{AB}}={m_ab:.1f}$ kN·m，$M_{{BA}}={m_ba:.1f}$ kN·m',
+                'keywords': ['EI消去', '回代', f'固定端彎矩={m_ab:.0f}'],
+                'grading': [
+                    (f'M_AB={m_ab:.1f} kN·m', 2),
+                    (f'M_BA={m_ba:.1f} kN·m，且能說明這是邊界條件的直接結果', 2),
+                ],
+            },
+            {
+                'title': '求支承反力',
+                'problem': '求 A、B 兩端的垂直反力 R_A、R_B。',
+                'concept': '這是標準靜不定梁的固定端反力公式，可以用「先解剪力函數再'
+                           '代入端點」的方式反推，也可以直接用標準propped cantilever'
+                           '公式做交叉檢查。',
+                'formula': r'$V(x)=\frac{M_{BA}-M_{AB}-\frac12wL^2}{L}+wx,\ R_A=-V(0),\ '
+                           r'R_B=V(L)$；標準結果 $R_A=\frac{5wL}{8}, R_B=\frac{3wL}{8}$',
+                'substitution': f'w={w}, L={L}',
+                'answer': rf'$R_A=\dfrac{{5\times{w}\times{L}}}{{8}}={r_a:.1f}$ kN，'
+                          rf'$R_B=\dfrac{{3\times{w}\times{L}}}{{8}}={r_b:.1f}$ kN',
+                'keywords': ['5wL/8', '3wL/8', '剪力函數', 'ΣFy=0'],
+                'grading': [
+                    (f'R_A={r_a:.1f} kN', 2),
+                    (f'R_B={r_b:.1f} kN', 2),
+                    (f'驗證 R_A+R_B=wL={w*L:.0f}(交叉檢查習慣)', 1),
+                ],
+            },
+            {
+                'title': '找最大彎矩位置與數值(跨內)',
+                'problem': '求梁跨內剪力等於零的位置，以及該處的彎矩值。',
+                'concept': '彎矩極值必發生在剪力等於零處——這是內力圖最基本、也最'
+                           '常考的關係，剪力圖跟彎矩圖能互相驗證就是靠這個。',
+                'formula': r'$V(x)=0 \Rightarrow x^*=-C_1/w$；'
+                           r'$M(x^*)=M_{AB}+C_1x^*+\frac12wx^{*2}$',
+                'substitution': f'C1={C1:.1f}, w={w}',
+                'answer': rf'$x^*={x_star:.2f}$ m，$M(x^*)={m_star:.1f}$ kN·m',
+                'keywords': ['V=0', '彎矩極值', '拋物線頂點', f'{m_star:.1f} kN·m', f'x={x_star:.2f}m'],
+                'grading': [
+                    (f'正確用 V=0 求出 x*={x_star:.2f}m', 2),
+                    (f'正確算出 M(x*)={m_star:.1f} kN·m', 2),
+                    ('能說明此點是全跨最大彎矩，並與端點值比較何者較大用於設計', 1),
+                ],
+            },
+        ]
 
     def draw_sfd(self, ax, moments_val):
         from sd_framework import member_shear_curve

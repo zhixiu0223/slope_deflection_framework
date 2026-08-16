@@ -2,7 +2,10 @@ import numpy as np
 import sympy as sp
 
 
-class TwoSpanBeamProblem:
+from sd_framework import SlopeDeflectionProblem
+
+
+class TwoSpanBeamProblem(SlopeDeflectionProblem):
     """
     Case-02：二次靜不定連續梁 (Two-Span Continuous Beam)
     A端固定 (theta_A=0)，B為中間滾支承 (連續、不釋放彎矩，theta_B 兩跨共用)，

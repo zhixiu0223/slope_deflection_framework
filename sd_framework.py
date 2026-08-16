@@ -76,10 +76,29 @@ class SlopeDeflectionProblem(ABC):
 
     def draw_sfd(self, ax, moments_val: dict) -> bool:
         """
-        (可選) 畫剪力圖 (SFD)，用於步驟... 若模型有實作，回傳 True 並把圖
+        (可選) 畫剪力圖 (SFD)，用於步驟6。若模型有實作，回傳 True 並把圖
         畫進傳入的 ax；預設不提供 (回傳 False)，求解器會印出提示而不出圖。
         """
         return False
+
+    def teaching_breakdown(self, moments_val: dict, reactions: dict, solution: dict) -> list:
+        """
+        (可選) 回傳這個模型的「教學詳解 + 評分要點」分解，用於步驟8。
+        每個小題是一個 dict，需要以下 key：
+          - title:         小題標題 (str)
+          - problem:       題目敘述 (str)
+          - concept:       概念解析 (str)
+          - formula:       公式引用 (str, 可含 LaTeX)
+          - substitution:  帶入數據說明 (str)
+          - answer:        詳細參考答案 (str, 可含 LaTeX)
+          - keywords:       關鍵字/chunk 列表 (list[str])
+          - grading:        評分要點列表 (list[tuple[str, int]])，每項是
+                            (要點敘述, 配分)
+        預設回傳空列表 (不提供)，求解器會印出提示而不出教學詳解——
+        這是刻意設計成可選的，因為每題的概念解析、配分是需要針對該
+        Case 手動設計的教學內容，不是所有 Case 一開始就要準備好。
+        """
+        return []
 
 
 # ============================================================
@@ -113,8 +132,16 @@ class SlopeDeflectionSolver:
 
         # ---------------- 步驟2：桿端彎矩方程式 ----------------
         self._step_header(2, "寫出桿端彎矩方程式")
+        display(Markdown(
+            "**① 公式引用**（傾角變位法一般式，對任何桿件 i→j 都適用，跟結構種類無關）：\n\n"
+            r"$$M_{ij} = \frac{2EI}{L}\left(2\theta_i + \theta_j - 3\psi\right) + FEM_{ij}$$"
+            "\n\n其中 $\\theta_i,\\theta_j$ 為兩端轉角，$\\psi=\\Delta/L$ 為側移角"
+            "（無側移時 $\\psi=0$），$FEM_{ij}$ 為固定端彎矩(依載重種類查表)。"
+        ))
         moments = p.build_moment_equations()
-        display(Markdown("**桿端彎矩方程式：**"))
+        display(Markdown(
+            "**② 代入本題的邊界條件、跨長與載重**，得到每根桿件的具體算式："
+        ))
         for name, expr in moments.items():
             display(sp.Eq(sp.Symbol(name), expr))
 
@@ -163,5 +190,26 @@ class SlopeDeflectionSolver:
         p.draw_bmd(ax2, moments_val)
         plt.show()
         plt.close('all')
+
+        # ---------------- 步驟8：教學詳解與評分要點 ----------------
+        self._step_header(8, "教學詳解與評分要點")
+        breakdown = p.teaching_breakdown(moments_val, reactions, sol)
+        if not breakdown:
+            print("(此模型尚未提供教學詳解，略過)")
+        else:
+            total_points = 0
+            for i, item in enumerate(breakdown, 1):
+                display(Markdown(f"### 第{i}小題：{item['title']}"))
+                display(Markdown(f"**題目**：{item['problem']}"))
+                display(Markdown(f"**概念解析**：{item['concept']}"))
+                display(Markdown(f"**公式引用**：\n\n{item['formula']}"))
+                display(Markdown(f"**帶入數據**：{item['substitution']}"))
+                display(Markdown(f"**詳細參考答案**：\n\n{item['answer']}"))
+                display(Markdown(f"**關鍵字/chunk**：{', '.join(item['keywords'])}"))
+                pts_sum = sum(pts for _, pts in item['grading'])
+                grading_lines = "\n".join(f"- {desc}（{pts}分）" for desc, pts in item['grading'])
+                display(Markdown(f"**評分要點**（本小題共 {pts_sum} 分）：\n\n{grading_lines}"))
+                total_points += pts_sum
+            display(Markdown(f"---\n**本題總分：{total_points} 分**"))
 
         return {"moments": moments_val, "reactions": reactions, "solution": sol}
