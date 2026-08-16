@@ -23,6 +23,17 @@ def member_moment_curve(s, length, w, M_i, M_j):
     return M_i + C1 * s + 0.5 * w * s**2
 
 
+def member_shear_curve(s, length, w, M_i, M_j):
+    """
+    member_moment_curve 的對應剪力函式: V(s) = dM/ds = C1 + w*s
+    (跟彎矩用同一個 C1，兩者必須自洽——這也是為什麼前幾輪都用剪力
+    去反查彎矩圖畫法對不對的原因：M(s) 和 V(s) 本來就是同一個 C1
+    推出來的，不會不一致)
+    """
+    C1 = (M_j - M_i - 0.5 * w * length**2) / length
+    return C1 + w * s
+
+
 # ============================================================
 # 策略介面 (Strategy Interface)
 # ============================================================
@@ -62,6 +73,13 @@ class SlopeDeflectionProblem(ABC):
     @abstractmethod
     def draw_bmd(self, ax, moments_val: dict):
         """畫彎矩圖 (圖2)，用於步驟6"""
+
+    def draw_sfd(self, ax, moments_val: dict) -> bool:
+        """
+        (可選) 畫剪力圖 (SFD)，用於步驟... 若模型有實作，回傳 True 並把圖
+        畫進傳入的 ax；預設不提供 (回傳 False)，求解器會印出提示而不出圖。
+        """
+        return False
 
 
 # ============================================================
@@ -129,8 +147,18 @@ class SlopeDeflectionSolver:
             for name, val in reactions.items():
                 print(f"-> {name} = {val:.3f}")
 
-        # ---------------- 步驟6：彎矩圖 ----------------
-        self._step_header(6, "繪製彎矩圖 (BMD)")
+        # ---------------- 步驟6：剪力圖 (SFD) ----------------
+        self._step_header(6, "繪製剪力圖 (SFD)")
+        fig_sfd, ax_sfd = plt.subplots(figsize=(8, 5))
+        has_sfd = p.draw_sfd(ax_sfd, moments_val)
+        if has_sfd:
+            plt.show()
+        else:
+            plt.close(fig_sfd)
+            print("(此模型尚未實作剪力圖，略過)")
+
+        # ---------------- 步驟7：彎矩圖 (BMD) ----------------
+        self._step_header(7, "繪製彎矩圖 (BMD)")
         fig2, ax2 = plt.subplots(figsize=(8, 6))
         p.draw_bmd(ax2, moments_val)
         plt.show()

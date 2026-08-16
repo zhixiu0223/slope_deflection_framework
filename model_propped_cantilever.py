@@ -75,7 +75,38 @@ class PropChedCantileverProblem:
         R_B = 3 * w * L / 8
         return {'R_A (kN, 固定端反力)': R_A, 'R_B (kN, 滾支承反力)': R_B}
 
+    def draw_sfd(self, ax, moments_val):
+        from sd_framework import member_shear_curve
+        L, w = self.L, self.w
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        scale = 0.02
+
+        ax.plot([0, L], [0, 0], 'k-', lw=4, label='Beam')
+        x = np.linspace(0, L, 200)
+        v_line = member_shear_curve(x, L, w, m_ab, m_ba)
+        ax.plot(x, v_line * scale, 'b-', lw=2, label='SFD (kN)')
+        ax.fill_between(x, 0, v_line * scale, color='blue', alpha=0.15)
+
+        ax.text(0, v_line[0] * scale - 0.25, f'{v_line[0]:.2f}', color='darkblue',
+                ha='center', fontweight='bold')
+        ax.text(L, v_line[-1] * scale + 0.25, f'{v_line[-1]:.2f}', color='darkblue',
+                ha='center', fontweight='bold')
+        # 剪力過零點 (彎矩極值所在位置，跟BMD的極值點是同一個x)
+        i_zero = int(np.argmin(np.abs(v_line)))
+        ax.plot(x[i_zero], 0, 'ko', ms=5)
+        ax.text(x[i_zero], -0.35, f'V=0\nx={x[i_zero]:.2f}m', color='black',
+                ha='center', fontsize=9)
+
+        ax.set_xlim(-1, L + 1)
+        ax.set_title('Figure: Shear Force Diagram (SFD) [kN]')
+        ax.set_xlabel('X Position (m)')
+        ax.set_ylabel('Shear offset (scaled)')
+        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.legend(loc='upper right')
+        return True
+
     def draw_bmd(self, ax, moments_val):
+        from sd_framework import member_moment_curve
         L, w = self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         scale = 0.03
