@@ -168,6 +168,53 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.legend(loc='upper right')
         return True
 
+    def draw_tension_side(self, ax, moments_val):
+        H, L = self.H, self.L
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
+        m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
+
+        ax.plot([0, 0], [0, H], 'k-', lw=4)
+        ax.plot([0, L], [H, H], 'k-', lw=4)
+        ax.plot([L, L], [H, 0], 'k-', lw=4)
+
+        # (x, y, 近端->遠端方向dx,dy, 該處physical值) -- physical值的正負
+        # 決定偏移方向 = 受拉側，這是跟 member_offset_curve 完全一致的
+        # 判斷方式，只是這裡直接標文字不畫曲線
+        labels = [
+            (0, 0, 0, 1, m_ab),
+            (0, H, 0, 1, -m_ba),
+            (0, H, 1, 0, m_bc),
+            (L, H, 1, 0, -m_cb),
+            (L, 0, 0, 1, m_dc),
+            (L, H, 0, 1, -m_cd),
+        ]
+        for x, y, dx, dy, val in labels:
+            perp_x, perp_y = -dy, dx
+            sign = 1 if val > 0 else -1
+            tx, ty = x + perp_x * sign * 0.9, y + perp_y * sign * 0.9
+            cx, cy = x - perp_x * sign * 0.9, y - perp_y * sign * 0.9
+            ax.annotate('TENSION', xy=(x, y), xytext=(tx, ty), color='red',
+                        fontsize=9, fontweight='bold', ha='center',
+                        arrowprops=dict(arrowstyle='->', color='red'))
+            ax.annotate('compression', xy=(x, y), xytext=(cx, cy), color='blue',
+                        fontsize=8, ha='center',
+                        arrowprops=dict(arrowstyle='->', color='blue', alpha=0.6))
+            ax.text(x, y - 0.35 if y == 0 else y + 0.35, f'M={val:.0f}',
+                    fontsize=8, ha='center', color='black')
+
+        m_mid = m_bc - self.w * self.L**2 / 8  # 跨中(均佈載重下，兩端同值的簡化式)
+        ax.annotate('TENSION (bottom)', xy=(L / 2, H), xytext=(L / 2, H - 1.0),
+                    color='red', fontsize=9, fontweight='bold', ha='center',
+                    arrowprops=dict(arrowstyle='->', color='red'))
+
+        ax.set_xlim(-2.5, L + 2.5)
+        ax.set_ylim(-1.5, H + 2)
+        ax.set_aspect('equal')
+        ax.set_title('Figure: Tension/Compression Side by Member')
+        ax.grid(True, linestyle='--', alpha=0.4)
+        return True
+
     def draw_bmd(self, ax, moments_val):
         from sd_framework import member_moment_curve, member_offset_curve
         H, L, w = self.H, self.L, self.w

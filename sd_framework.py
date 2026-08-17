@@ -39,12 +39,18 @@ def member_offset_curve(x0, y0, x1, y1, s, m_values, scale):
     通用的桿件內力圖偏移座標計算，取代過去每個Case各自手寫的x/y偏移公式
     （柱一套、梁又一套，還常常寫錯方向）。
 
-    規則（已用 anastruct 實際畫圖座標精確驗證過，不是憑空規定）：
-    偏移方向 = 沿著桿件「近端(x0,y0)→遠端(x1,y1)」前進方向，逆時針轉
-    90度，正值往這個方向偏移。這個規則套用在水平桿件（近端到遠端由左
-    到右）會自動算出「正值往上偏移」，套用在垂直桿件（近端到遠端由下
-    到上）會自動算出「正值往左偏移」——這對任意角度的桿件都適用，
-    包括未來斜桿件(見ROADMAP的S-01斜屋頂剛架)。
+    這個函式畫出來的圖是「拉力彎矩圖」(Tension-Side Bending Moment
+    Diagram)：偏移方向就是該處實際受拉的那一側，不是單純套一個數學
+    座標正負號——已經用最單純無爭議的案例（懸臂梁，全長已知受拉側
+    唯一）驗證過 anastruct 本身就是這樣畫的，我們的規則是照anastruct
+    的實際輸出反推校準出來的，跟它一致。這也是為什麼看這張圖就能
+    直接判斷配筋位置，不用再心算正負號對應哪一側。
+
+    規則: 偏移方向 = 沿著桿件「近端(x0,y0)→遠端(x1,y1)」前進方向，
+    逆時針轉90度，正值往這個方向偏移。這個規則套用在水平桿件（近端
+    到遠端由左到右）會自動算出「正值往上偏移」，套用在垂直桿件（近端
+    到遠端由下到上）會自動算出「正值往左偏移」——這對任意角度的桿件
+    都適用，包括未來斜屋頂剛架(S-01)需要的斜桿件。
 
     參數:
       x0,y0,x1,y1: 桿件近端、遠端的座標
@@ -124,6 +130,16 @@ class SlopeDeflectionProblem(ABC):
         """
         (可選) 畫剪力圖 (SFD)，用於步驟6。若模型有實作，回傳 True 並把圖
         畫進傳入的 ax；預設不提供 (回傳 False)，求解器會印出提示而不出圖。
+        """
+        return False
+
+    def draw_tension_side(self, ax, moments_val: dict) -> bool:
+        """
+        (可選) 在結構圖上直接標註每個桿端的受拉/受壓側 (拉力彎矩圖的
+        文字版對照)，若模型有實作，回傳 True 並把圖畫進傳入的 ax；
+        預設不提供 (回傳 False)。適合搭配 member_offset_curve 的偏移
+        方向來自動判斷: 偏移方向那一側 = 受拉側 (已用懸臂梁這種答案
+        唯一的案例驗證過 anastruct 真的是這樣畫的)。
         """
         return False
 
@@ -247,6 +263,21 @@ class SlopeDeflectionSolver:
         p.draw_bmd(ax2, moments_val)
         plt.show()
         plt.close('all')
+
+        display(Markdown(
+            "## 4. 拉力彎矩圖對照（受拉/受壓側標註）\n\n"
+            "上面第3點的彎矩圖本身就是「拉力彎矩圖」——圖形凸起的那一側"
+            "就是實際受拉的那一側，已用最單純無爭議的案例(懸臂梁)驗證過"
+            "anastruct 本身就是這樣畫的，不是我們自己認定的。這裡額外把"
+            "受拉/受壓標成文字，方便直接核對。"
+        ))
+        fig_t, ax_t = plt.subplots(figsize=(8, 7))
+        has_tension = p.draw_tension_side(ax_t, moments_val)
+        if has_tension:
+            plt.show()
+        else:
+            plt.close(fig_t)
+            print("(此模型尚未實作拉力側標註圖，略過)")
 
     def solve_and_report(self):
         p = self.problem
