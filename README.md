@@ -38,4 +38,6 @@ Case 編號 notebook，每個 Case 都自成一個可獨立在 Colab 執行的�
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-02-two-span-beam.ipynb)
 * [Case-02:二次靜不定連續梁-wget版本-notebook](notebooks/Case-02-two-span-beam-wget.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-02-two-span-beam-wget.ipynb)
+* [Case-02 無側移單跨剛架](notebooks/Case-03-no-sway-frame.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-03-no-sway-frame.ipynb)
 
