@@ -40,4 +40,6 @@ Case 編號 notebook，每個 Case 都自成一個可獨立在 Colab 執行的�
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-02-two-span-beam-wget.ipynb)
 * [Case-03 無側移單跨剛架](notebooks/Case-03-no-sway-frame.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-03-no-sway-frame.ipynb)
+* [Case-03 無側移單跨剛架-wget版](notebooks/Case-03-no-sway-frame-wget.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-03-no-sway-frame-wget.ipynb)
 
