@@ -120,7 +120,7 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
                 'V_A (kN)': V_A, 'V_D (kN)': V_D}
 
     def draw_sfd(self, ax, moments_val):
-        from sd_framework import member_shear_curve
+        from sd_framework import member_shear_curve, member_offset_curve
         H, L, w = self.H, self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
@@ -131,30 +131,34 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.plot([0, L], [H, H], 'k-', lw=3)
         ax.plot([L, L], [H, 0], 'k-', lw=3)
 
-        # 統一規則：不分柱或梁，遠端都要negate才是物理上連續的邊界值
-        # (已用anastruct的真實bending_moment/shear_force陣列驗證過，
-        # 之前「柱不用negate」的判斷是錯的——柱子放大看其實也會crossing)
-        y1 = np.linspace(0, H, 100)
-        v1 = member_shear_curve(y1, H, 0.0, m_ab, -m_ba)
-        ax.plot(v1 * scale, y1, 'b-', lw=2, label='SFD')
-        ax.fill_betweenx(y1, 0, v1 * scale, color='blue', alpha=0.15)
+        # 統一規則：偏移方向 = 沿「近端->遠端」前進方向逆時針轉90度，
+        # 柱、梁都用同一個 member_offset_curve，不再各自手寫x/y公式
+        # (已用anastruct實際畫圖座標精確驗證過，見對話記錄)
+        s1 = np.linspace(0, H, 100)
+        v1 = member_shear_curve(s1, H, 0.0, m_ab, -m_ba)
+        x1, y1 = member_offset_curve(0, 0, 0, H, s1, v1, scale)
+        ax.plot(x1, y1, 'b-', lw=2, label='SFD')
+        ax.fill(np.append(x1, [0, 0]), np.append(y1, [H, 0]), color='blue', alpha=0.15)
 
-        x2 = np.linspace(0, L, 200)
-        v2 = member_shear_curve(x2, L, w, m_bc, -m_cb)
-        ax.plot(x2, H + v2 * scale, 'b-', lw=2)
-        ax.fill_between(x2, H, H + v2 * scale, color='blue', alpha=0.15)
+        s2 = np.linspace(0, L, 200)
+        v2 = member_shear_curve(s2, L, w, m_bc, -m_cb)
+        x2, y2 = member_offset_curve(0, H, L, H, s2, v2, scale)
+        ax.plot(x2, y2, 'b-', lw=2)
+        ax.fill(np.append(x2, [L, 0]), np.append(y2, [H, H]), color='blue', alpha=0.15)
 
-        y3 = np.linspace(0, H, 100)
-        v3 = member_shear_curve(y3, H, 0.0, m_cd, -m_dc)
-        ax.plot(L - v3 * scale, H - y3, 'b-', lw=2)
-        ax.fill_betweenx(H - y3, L, L - v3 * scale, color='blue', alpha=0.15)
+        # 柱CD: 近端D(L,0) -> 遠端C(L,H)，跟AB統一方向(由下往上)
+        s3 = np.linspace(0, H, 100)
+        v3 = member_shear_curve(s3, H, 0.0, m_dc, -m_cd)
+        x3, y3 = member_offset_curve(L, 0, L, H, s3, v3, scale)
+        ax.plot(x3, y3, 'b-', lw=2)
+        ax.fill(np.append(x3, [L, L]), np.append(y3, [H, 0]), color='blue', alpha=0.15)
 
         ax.axhline(0, color='gray', lw=0.5, zorder=0)
         ax.axhline(H, color='gray', lw=0.5, zorder=0)
-        for val, x, y, ha in [(v1[0], 0, 0, 'right'), (v1[-1], 0, H, 'right'),
-                               (v2[0], 0, H, 'left'), (v2[-1], L, H, 'right'),
-                               (v3[0], L, H, 'left'), (v3[-1], L, 0, 'left')]:
-            ax.text(x, y, f'{val:.1f}', color='darkblue', fontsize=8, ha=ha)
+        for xx, yy, val, ha in [(x1[0], y1[0], v1[0], 'right'), (x1[-1], y1[-1], v1[-1], 'right'),
+                                 (x2[0], y2[0], v2[0], 'left'), (x2[-1], y2[-1], v2[-1], 'right'),
+                                 (x3[0], y3[0], v3[0], 'left'), (x3[-1], y3[-1], v3[-1], 'left')]:
+            ax.text(xx, yy, f'{val:.1f}', color='darkblue', fontsize=8, ha=ha)
 
         ax.set_xlim(-3, L + 3)
         ax.set_ylim(-1, H + 2)
@@ -165,7 +169,7 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         return True
 
     def draw_bmd(self, ax, moments_val):
-        from sd_framework import member_moment_curve
+        from sd_framework import member_moment_curve, member_offset_curve
         H, L, w = self.H, self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
@@ -176,38 +180,35 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.plot([0, L], [H, H], 'k-', lw=3)
         ax.plot([L, L], [H, 0], 'k-', lw=3)
 
-        # 統一規則：柱、梁遠端都要negate (見上方draw_sfd的說明)
-        y1 = np.linspace(0, H, 200)
-        m1 = member_moment_curve(y1, H, 0.0, m_ab, -m_ba)
-        ax.plot(m1 * scale, y1, 'r--', lw=2, label='BMD')
-        ax.fill_betweenx(y1, 0, m1 * scale, color='red', alpha=0.15)
+        s1 = np.linspace(0, H, 200)
+        m1 = member_moment_curve(s1, H, 0.0, m_ab, -m_ba)
+        x1, y1 = member_offset_curve(0, 0, 0, H, s1, m1, scale)
+        ax.plot(x1, y1, 'r--', lw=2, label='BMD')
+        ax.fill(np.append(x1, [0, 0]), np.append(y1, [H, 0]), color='red', alpha=0.15)
 
-        x2 = np.linspace(0, L, 200)
-        m2 = member_moment_curve(x2, L, w, m_bc, -m_cb)
-        ax.plot(x2, H + m2 * scale, 'r--', lw=2)
-        ax.fill_between(x2, H, H + m2 * scale, color='red', alpha=0.15)
+        s2 = np.linspace(0, L, 200)
+        m2 = member_moment_curve(s2, L, w, m_bc, -m_cb)
+        x2, y2 = member_offset_curve(0, H, L, H, s2, m2, scale)
+        ax.plot(x2, y2, 'r--', lw=2)
+        ax.fill(np.append(x2, [L, 0]), np.append(y2, [H, H]), color='red', alpha=0.15)
 
-        y3 = np.linspace(0, H, 200)
-        m3 = member_moment_curve(y3, H, 0.0, m_cd, -m_dc)
-        ax.plot(L - m3 * scale, H - y3, 'r--', lw=2)
-        ax.fill_betweenx(H - y3, L, L - m3 * scale, color='red', alpha=0.15)
+        s3 = np.linspace(0, H, 200)
+        m3 = member_moment_curve(s3, H, 0.0, m_dc, -m_cd)
+        x3, y3 = member_offset_curve(L, 0, L, H, s3, m3, scale)
+        ax.plot(x3, y3, 'r--', lw=2)
+        ax.fill(np.append(x3, [L, L]), np.append(y3, [H, 0]), color='red', alpha=0.15)
 
         ax.axhline(0, color='gray', lw=0.5, zorder=0)
         ax.axhline(H, color='gray', lw=0.5, zorder=0)
 
-        ax.text(m_ab * scale, 0, f'{m_ab:.1f}', color='darkred', fontsize=8, ha='right', va='top')
-        ax.text(m1[-1] * scale, H, f'{m1[-1]:.1f}', color='darkred', fontsize=8, ha='right', va='bottom')
-        ax.text(0, H + m_bc * scale, f'{m_bc:.1f}', color='darkred', fontsize=8, ha='left', va='bottom')
-        ax.text(L, H + m2[-1] * scale, f'{m2[-1]:.1f}', color='darkred', fontsize=8, ha='right', va='bottom')
-        ax.text(L - m_cd * scale, H, f'{m_cd:.1f}', color='darkred', fontsize=8, ha='left', va='bottom')
-        ax.text(L - m3[-1] * scale, 0, f'{m3[-1]:.1f}', color='darkred', fontsize=8, ha='left', va='top')
+        ax.text(x1[0], y1[0], f'{m1[0]:.1f}', color='darkred', fontsize=8, ha='right', va='top')
+        ax.text(x1[-1], y1[-1], f'{m1[-1]:.1f}', color='darkred', fontsize=8, ha='right', va='bottom')
+        ax.text(x2[0], y2[0], f'{m2[0]:.1f}', color='darkred', fontsize=8, ha='left', va='bottom')
+        ax.text(x2[-1], y2[-1], f'{m2[-1]:.1f}', color='darkred', fontsize=8, ha='right', va='bottom')
+        ax.text(x3[-1], y3[-1], f'{m3[-1]:.1f}', color='darkred', fontsize=8, ha='left', va='bottom')
+        ax.text(x3[0], y3[0], f'{m3[0]:.1f}', color='darkred', fontsize=8, ha='left', va='top')
 
-        # 每根桿件的跨內真正極值 (解析解)，柱也要標，因為柱現在會crossing
-        self._label_interior_extremum(ax, H, 0.0, m_ab, -m_ba, scale, y_base=0,
-                                       horizontal=False, x_base=0)
-        self._label_interior_extremum(ax, L, w, m_bc, -m_cb, scale, y_base=H, horizontal=True)
-        self._label_interior_extremum(ax, H, 0.0, m_cd, -m_dc, scale, y_base=0,
-                                       horizontal=False, x_base=L, flip_y=True)
+        self._label_interior_extremum_xy(ax, 0, H, L, H, w, m_bc, -m_cb, scale)
 
         ax.set_xlim(-4, L + 4)
         ax.set_ylim(-1, H + 3)
@@ -217,18 +218,16 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.legend(loc='upper right')
 
     @staticmethod
-    def _label_interior_extremum(ax, length, w, M_i, M_j, scale, y_base, horizontal=True,
-                                  x_base=0, flip_y=False):
-        # w=0 (柱) 時仍可能有 crossing (因為現在M_i,M_j可能異號)，但沒有
-        # 拋物線頂點可言 (純線性)，這裡只在有均佈載重(w>0)時標跨內極值；
-        # 柱的crossing點本身數值是0，不需要另外標「極值」
+    def _label_interior_extremum_xy(ax, x0, y0, x1, y1, w, M_i, M_j, scale):
+        from sd_framework import member_offset_curve
         if w == 0:
             return
+        length = np.hypot(x1 - x0, y1 - y0)
         C1 = (M_j - M_i - 0.5 * w * length**2) / length
         s_star = -C1 / w
         if 0 < s_star < length:
             m_star = M_i + C1 * s_star + 0.5 * w * s_star**2
-            if horizontal:
-                ax.text(s_star, y_base + m_star * scale - 0.3,
-                        f'{m_star:.1f}\n(x={s_star:.2f}m)', color='darkred',
-                        ha='center', fontweight='bold', fontsize=9)
+            xs, ys = member_offset_curve(x0, y0, x1, y1, np.array([s_star]),
+                                          np.array([m_star]), scale)
+            ax.text(xs[0], ys[0] - 0.3, f'{m_star:.1f}\n(x={s_star:.2f}m)',
+                    color='darkred', ha='center', fontweight='bold', fontsize=9)

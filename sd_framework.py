@@ -34,6 +34,35 @@ def member_shear_curve(s, length, w, M_i, M_j):
     return C1 + w * s
 
 
+def member_offset_curve(x0, y0, x1, y1, s, m_values, scale):
+    """
+    通用的桿件內力圖偏移座標計算，取代過去每個Case各自手寫的x/y偏移公式
+    （柱一套、梁又一套，還常常寫錯方向）。
+
+    規則（已用 anastruct 實際畫圖座標精確驗證過，不是憑空規定）：
+    偏移方向 = 沿著桿件「近端(x0,y0)→遠端(x1,y1)」前進方向，逆時針轉
+    90度，正值往這個方向偏移。這個規則套用在水平桿件（近端到遠端由左
+    到右）會自動算出「正值往上偏移」，套用在垂直桿件（近端到遠端由下
+    到上）會自動算出「正值往左偏移」——這對任意角度的桿件都適用，
+    包括未來斜桿件(見ROADMAP的S-01斜屋頂剛架)。
+
+    參數:
+      x0,y0,x1,y1: 桿件近端、遠端的座標
+      s: 沿桿件長度的局部座標陣列 (0~length)
+      m_values: 對應每個s的彎矩或剪力值 (通常是 member_moment_curve
+                或 member_shear_curve 的輸出)
+      scale: 縮放比例
+    回傳: (x, y) 畫圖用座標陣列
+    """
+    length = np.hypot(x1 - x0, y1 - y0)
+    dx, dy = (x1 - x0) / length, (y1 - y0) / length
+    perp_x, perp_y = -dy, dx  # 逆時針90度
+    frac = s / length
+    base_x = x0 + frac * (x1 - x0)
+    base_y = y0 + frac * (y1 - y0)
+    return base_x + perp_x * m_values * scale, base_y + perp_y * m_values * scale
+
+
 # ============================================================
 # 策略介面 (Strategy Interface)
 # ============================================================
