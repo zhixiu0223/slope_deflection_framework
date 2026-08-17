@@ -126,6 +126,83 @@ class SlopeDeflectionSolver:
         print(f"【步驟 {n}】{title}")
         print("=" * 60)
 
+    def _solve_core(self):
+        """純計算，不印任何東西：算出 moments、平衡方程式、解、回代結果、反力。
+        solve_and_report() 跟 print_teaching_handout() 共用這段，避免兩邊各算一次
+        還可能算出不一樣結果的風險。"""
+        p = self.problem
+        moments = p.build_moment_equations()
+        labeled_eqs = p.build_equilibrium_equations(moments)
+        eqs = [eq for _, eq in labeled_eqs]
+        unknowns = p.get_unknowns()
+        sol = sp.solve(eqs, tuple(unknowns.values()))
+        moments_val = {name: float(expr.subs(sol)) for name, expr in moments.items()}
+        reactions = p.compute_reactions(moments_val)
+        return moments, labeled_eqs, unknowns, sol, moments_val, reactions
+
+    def _print_teaching_breakdown(self, moments_val, reactions, sol):
+        """渲染 teaching_breakdown() 的內容 (題目/概念解析/公式引用/帶入數據/
+        參考答案/關鍵字/評分要點)。solve_and_report() 的步驟8跟
+        print_teaching_handout() 共用這段渲染邏輯，回傳 True/False 代表這個
+        model 有沒有提供內容。"""
+        p = self.problem
+        breakdown = p.teaching_breakdown(moments_val, reactions, sol)
+        if not breakdown:
+            return False
+        total_points = 0
+        for i, item in enumerate(breakdown, 1):
+            display(Markdown(f"### 第{i}小題：{item['title']}"))
+            display(Markdown(f"**題目**：{item['problem']}"))
+            display(Markdown(f"**概念解析**：{item['concept']}"))
+            display(Markdown(f"**公式引用**：\n\n{item['formula']}"))
+            display(Markdown(f"**帶入數據**：{item['substitution']}"))
+            display(Markdown(f"**詳細參考答案**：\n\n{item['answer']}"))
+            display(Markdown(f"**關鍵字/chunk**：{', '.join(item['keywords'])}"))
+            pts_sum = sum(pts for _, pts in item['grading'])
+            grading_lines = "\n".join(f"- {desc}（{pts}分）" for desc, pts in item['grading'])
+            display(Markdown(f"**評分要點**（本小題共 {pts_sum} 分）：\n\n{grading_lines}"))
+            total_points += pts_sum
+        display(Markdown(f"---\n**本題總分：{total_points} 分**"))
+        return True
+
+    def print_teaching_handout(self):
+        """
+        產生一份可以直接複製當教學講義用的輸出，只有三塊、沒有步驟編號、
+        沒有中間的符號方程式/平衡方程式這些過程 (那些留在 solve_and_report()
+        裡)：
+          1. 結構受力圖
+          2. 教學詳解與評分要點 (原本步驟8的內容)
+          3. 剪力圖(SFD) + 彎矩圖(BMD)
+        適合放在 solve_and_report() 那個 cell 的下一個 cell，單獨執行、
+        單獨截圖/複製，不用夾雜求解過程。
+        """
+        p = self.problem
+        moments, labeled_eqs, unknowns, sol, moments_val, reactions = self._solve_core()
+
+        display(Markdown("## 1. 結構受力圖"))
+        fig1, ax1 = plt.subplots(figsize=(8, 6))
+        p.draw_geometry(ax1)
+        plt.show()
+
+        display(Markdown("## 2. 教學詳解與評分要點"))
+        has_breakdown = self._print_teaching_breakdown(moments_val, reactions, sol)
+        if not has_breakdown:
+            print("(此模型尚未提供教學詳解)")
+
+        display(Markdown("## 3. 剪力圖 (SFD) 與彎矩圖 (BMD)"))
+        fig_sfd, ax_sfd = plt.subplots(figsize=(8, 5))
+        has_sfd = p.draw_sfd(ax_sfd, moments_val)
+        if has_sfd:
+            plt.show()
+        else:
+            plt.close(fig_sfd)
+            print("(此模型尚未實作剪力圖，略過)")
+
+        fig2, ax2 = plt.subplots(figsize=(8, 6))
+        p.draw_bmd(ax2, moments_val)
+        plt.show()
+        plt.close('all')
+
     def solve_and_report(self):
         p = self.problem
 
@@ -144,7 +221,7 @@ class SlopeDeflectionSolver:
             "\n\n其中 $\\theta_i,\\theta_j$ 為兩端轉角，$\\psi=\\Delta/L$ 為側移角"
             "（無側移時 $\\psi=0$），$FEM_{ij}$ 為固定端彎矩(依載重種類查表)。"
         ))
-        moments = p.build_moment_equations()
+        moments, labeled_eqs, unknowns, sol, moments_val, reactions = self._solve_core()
         display(Markdown(
             "**② 代入本題的邊界條件、跨長與載重**，得到每根桿件的具體算式："
         ))
@@ -153,30 +230,23 @@ class SlopeDeflectionSolver:
 
         # ---------------- 步驟3：平衡方程式 ----------------
         self._step_header(3, "建立平衡方程式")
-        labeled_eqs = p.build_equilibrium_equations(moments)
         display(Markdown("**平衡方程式**（每條方程式對應哪個節點/桿件、哪一種平衡條件）："))
         for label, eq in labeled_eqs:
             display(Markdown(f"- {label}"))
             display(eq)
-        eqs = [eq for _, eq in labeled_eqs]
 
         # ---------------- 步驟4：解聯立方程式 ----------------
         self._step_header(4, "求解聯立方程式 (未知位移量)")
-        unknowns = p.get_unknowns()
-        unknown_syms = tuple(unknowns.values())
-        sol = sp.solve(eqs, unknown_syms)
         display(Markdown("**位移求解結果：**"))
         for name, sym in unknowns.items():
             display(sp.Eq(sp.Symbol(name), sol[sym]))
 
         # ---------------- 步驟5：回代求彎矩與反力 ----------------
         self._step_header(5, "計算真實桿端彎矩與反力")
-        moments_val = {name: float(expr.subs(sol)) for name, expr in moments.items()}
         display(Markdown("**最終桿端彎矩計算結果 (kN·m)：**"))
         for name, val in moments_val.items():
             print(f"{name} = {val:.3f} kN·m")
 
-        reactions = p.compute_reactions(moments_val)
         if reactions:
             print()
             for name, val in reactions.items():
@@ -201,23 +271,8 @@ class SlopeDeflectionSolver:
 
         # ---------------- 步驟8：教學詳解與評分要點 ----------------
         self._step_header(8, "教學詳解與評分要點")
-        breakdown = p.teaching_breakdown(moments_val, reactions, sol)
-        if not breakdown:
+        has_breakdown = self._print_teaching_breakdown(moments_val, reactions, sol)
+        if not has_breakdown:
             print("(此模型尚未提供教學詳解，略過)")
-        else:
-            total_points = 0
-            for i, item in enumerate(breakdown, 1):
-                display(Markdown(f"### 第{i}小題：{item['title']}"))
-                display(Markdown(f"**題目**：{item['problem']}"))
-                display(Markdown(f"**概念解析**：{item['concept']}"))
-                display(Markdown(f"**公式引用**：\n\n{item['formula']}"))
-                display(Markdown(f"**帶入數據**：{item['substitution']}"))
-                display(Markdown(f"**詳細參考答案**：\n\n{item['answer']}"))
-                display(Markdown(f"**關鍵字/chunk**：{', '.join(item['keywords'])}"))
-                pts_sum = sum(pts for _, pts in item['grading'])
-                grading_lines = "\n".join(f"- {desc}（{pts}分）" for desc, pts in item['grading'])
-                display(Markdown(f"**評分要點**（本小題共 {pts_sum} 分）：\n\n{grading_lines}"))
-                total_points += pts_sum
-            display(Markdown(f"---\n**本題總分：{total_points} 分**"))
 
         return {"moments": moments_val, "reactions": reactions, "solution": sol}
