@@ -25,9 +25,14 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
     def describe(self):
         return (f"**跨度** $L={self.L}$ m, **均佈載重** $w={self.w}$ kN/m\n\n"
                 f"**邊界條件：** A端固定 ($\\theta_A=0$)，"
-                f"B端滾支承 ($M_{{BA}}=0$，可自由轉動、垂直方向受限)\n\n"
-                f"**自由度分析：** 只有一個未知位移量 $\\theta_B$ —— "
-                f"這是最基本的一次靜不定結構，是本課程的第一個 Case")
+                f"B端滾支承 ($M_{{BA}}=0$，可自由轉動、垂直方向受限)")
+
+    def describe_dof(self):
+        return (f"A端固定，轉角鎖死 $\\theta_A=0$，不是未知量；"
+                f"B端是滾支承，可以自由轉動，所以 $\\theta_B$ 是**唯一**的"
+                f"未知位移量。這是最基本的一次靜不定結構，是本課程的第一個"
+                f"Case——如果誤把 $\\theta_A$ 也當成未知量列進方程式，或漏掉 "
+                f"$\\theta_B$，後面的方程式全部會建立在錯的自由度上。")
 
     def draw_geometry(self, ax):
         L = self.L

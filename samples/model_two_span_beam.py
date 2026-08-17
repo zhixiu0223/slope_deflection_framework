@@ -28,10 +28,16 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         return (f"**AB跨** $L_1={self.L1}$ m ($w_1={self.w1}$ kN/m), "
                 f"**BC跨** $L_2={self.L2}$ m ($w_2={self.w2}$ kN/m)\n\n"
                 f"**邊界條件：** A端固定 ($\\theta_A=0$)，B為中間滾支承 "
-                f"(連續，$\\theta_B$ 兩跨共用)，C為遠端滾支承 ($M_{{CB}}=0$)\n\n"
-                f"**自由度分析：** 兩個未知位移量 $\\theta_B, \\theta_C$ —— "
-                f"比 Case-01 多了一個節點(B)，新增的是**中間節點力矩平衡** "
-                f"$M_{{BA}}+M_{{BC}}=0$")
+                f"(連續，$\\theta_B$ 兩跨共用)，C為遠端滾支承 ($M_{{CB}}=0$)")
+
+    def describe_dof(self):
+        return (f"A端固定，$\\theta_A=0$，不是未知量；B是**連續**的中間支承"
+                f"(不是鉸接釋放)，AB跨跟BC跨在B點共用**同一個**轉角 "
+                f"$\\theta_B$——這裡如果誤把AB跨、BC跨各自設一個獨立轉角"
+                f"(當成B是鉸接)，會多出一個不存在的自由度，方程式數量對不上；"
+                f"C端是滾支承可自由轉動，$\\theta_C$ 是第二個未知量。"
+                f"共兩個未知位移量 $\\theta_B, \\theta_C$——比 Case-01 多了一個"
+                f"節點(B)，新增的是**中間節點力矩平衡** $M_{{BA}}+M_{{BC}}=0$。")
 
     def draw_geometry(self, ax):
         L1, L2, w1, w2 = self.L1, self.L2, self.w1, self.w2

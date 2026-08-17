@@ -52,7 +52,18 @@ class SlopeDeflectionProblem(ABC):
 
     @abstractmethod
     def describe(self) -> str:
-        """題目文字敘述 (Markdown)，用於步驟1"""
+        """題目文字敘述 (Markdown)：結構、幾何、材料、載重、邊界條件，用於步驟1。
+        不含自由度選取的說明——那部分獨立在 describe_dof()。"""
+
+    @abstractmethod
+    def describe_dof(self) -> str:
+        """
+        自由度(未知位移量)選取的說明 (Markdown)，用於步驟1。跟 describe()
+        分開成獨立方法，是因為這一步是整個傾角變位法最容易出錯、也最該
+        覆核的地方——自由度選錯或漏掉一個，後面所有方程式都會建立在錯誤
+        的基礎上，整題就全錯了，值得在輸出裡獨立成一個顯眼的區塊，
+        不要被埋沒在結構描述裡面。
+        """
 
     @abstractmethod
     def draw_geometry(self, ax):
@@ -179,10 +190,15 @@ class SlopeDeflectionSolver:
         p = self.problem
         moments, labeled_eqs, unknowns, sol, moments_val, reactions = self._solve_core()
 
-        display(Markdown("## 1. 結構受力圖"))
+        display(Markdown("## 1. 結構受力圖與自由度"))
+        display(Markdown(p.describe()))
         fig1, ax1 = plt.subplots(figsize=(8, 6))
         p.draw_geometry(ax1)
         plt.show()
+        display(Markdown(
+            "**⚠️ 自由度選取**（這一步選錯或漏掉，後面所有方程式都會建立在"
+            "錯誤基礎上、整題全錯，是最需要覆核的一步）：\n\n" + p.describe_dof()
+        ))
 
         display(Markdown("## 2. 教學詳解與評分要點"))
         has_breakdown = self._print_teaching_breakdown(moments_val, reactions, sol)
@@ -208,10 +224,15 @@ class SlopeDeflectionSolver:
 
         # ---------------- 步驟1：題目與幾何 ----------------
         self._step_header(1, "題目定義、幾何/材料參數與自由度標示")
+        display(Markdown("**① 結構定義、幾何與邊界條件**"))
         display(Markdown(p.describe()))
         fig1, ax1 = plt.subplots(figsize=(8, 6))
         p.draw_geometry(ax1)
         plt.show()
+        display(Markdown(
+            "**② ⚠️ 自由度選取**（這一步選錯或漏掉，後面所有方程式都會建立在"
+            "錯誤基礎上、整題全錯，是最需要覆核的一步）：\n\n" + p.describe_dof()
+        ))
 
         # ---------------- 步驟2：桿端彎矩方程式 ----------------
         self._step_header(2, "寫出桿端彎矩方程式")
@@ -269,10 +290,7 @@ class SlopeDeflectionSolver:
         plt.show()
         plt.close('all')
 
-        # ---------------- 步驟8：教學詳解與評分要點 ----------------
-        self._step_header(8, "教學詳解與評分要點")
-        has_breakdown = self._print_teaching_breakdown(moments_val, reactions, sol)
-        if not has_breakdown:
-            print("(此模型尚未提供教學詳解，略過)")
+        # 教學詳解與評分要點已移到 print_teaching_handout()，這裡不再重複
+        # (solve_and_report() 專注在「手算過程」，教學詳解是另一種呈現方式)
 
         return {"moments": moments_val, "reactions": reactions, "solution": sol}
