@@ -69,7 +69,7 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
     def build_equilibrium_equations(self, moments):
         # B端是滾支承，沒有彎矩傳遞，取代「節點力矩平衡」的邊界條件是 M_BA=0
         eq1 = sp.Eq(moments['M_{BA}'], 0)
-        return [eq1]
+        return [("B端邊界條件（滾支承不傳彎矩） M_BA = 0", eq1)]
 
     def compute_reactions(self, moments_val):
         # 已用 anastruct 驗證: R_A=5wL/8 (固定端), R_B=3wL/8 (滾支承)

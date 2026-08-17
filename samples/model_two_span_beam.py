@@ -90,9 +90,13 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         }
 
     def build_equilibrium_equations(self, moments):
-        eq1 = sp.Eq(moments['M_{BA}'] + moments['M_{BC}'], 0)  # 中間節點B平衡(新概念)
-        eq2 = sp.Eq(moments['M_{CB}'], 0)                      # C端邊界條件(沿用Case-01)
-        return [eq1, eq2]
+        eq1 = sp.Eq(moments['M_{BA}'] + moments['M_{BC}'], 0)
+        eq2 = sp.Eq(moments['M_{CB}'], 0)
+        return [
+            ("節點 B 力矩平衡 ΣM_B=0（AB跨與BC跨在B點交會，連續支承、無外加彎矩） "
+             "M_BA + M_BC = 0", eq1),
+            ("C端邊界條件（滾支承不傳彎矩） M_CB = 0", eq2),
+        ]
 
     def compute_reactions(self, moments_val):
         from sd_framework import member_shear_curve

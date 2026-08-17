@@ -64,7 +64,13 @@ class SlopeDeflectionProblem(ABC):
 
     @abstractmethod
     def build_equilibrium_equations(self, moments: dict) -> list:
-        """回傳平衡方程式 list[sp.Eq]，用於步驟3"""
+        """
+        回傳平衡方程式，用於步驟3。格式為 list[tuple[str, sp.Eq]]：
+        每一條方程式搭配一句說明它是哪個節點/桿件、哪一種平衡條件
+        (例如 "節點B力矩平衡 ΣM_B=0"、"C端邊界條件(滾支承) M_CB=0"、
+        "整體水平力平衡 ΣFx=0")，求解器會把說明跟方程式一起印出來，
+        不再只丟一堆沒有上下文的裸方程式。
+        """
 
     def compute_reactions(self, moments_val: dict) -> dict:
         """(可選) 由彎矩回代算支承反力/軸力，用於步驟5。預設不計算。"""
@@ -147,10 +153,12 @@ class SlopeDeflectionSolver:
 
         # ---------------- 步驟3：平衡方程式 ----------------
         self._step_header(3, "建立平衡方程式")
-        eqs = p.build_equilibrium_equations(moments)
-        display(Markdown("**平衡方程式：**"))
-        for eq in eqs:
+        labeled_eqs = p.build_equilibrium_equations(moments)
+        display(Markdown("**平衡方程式**（每條方程式對應哪個節點/桿件、哪一種平衡條件）："))
+        for label, eq in labeled_eqs:
+            display(Markdown(f"- {label}"))
             display(eq)
+        eqs = [eq for _, eq in labeled_eqs]
 
         # ---------------- 步驟4：解聯立方程式 ----------------
         self._step_header(4, "求解聯立方程式 (未知位移量)")
