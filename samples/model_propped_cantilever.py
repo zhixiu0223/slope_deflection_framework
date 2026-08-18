@@ -182,6 +182,82 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
             },
         ]
 
+    def draw_tension_side(self, ax, moments_val):
+        L, w = self.L, self.w
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        ax.plot([0, L], [0, 0], 'k-', lw=4)
+
+        # (x, y, 近端->遠端方向dx,dy, 該處physical值)
+        labels = [
+            (0, 0, 1, 0, m_ab),   # A端
+            (L, 0, 1, 0, -m_ba),  # B端 (遠端, physical值要negate)
+        ]
+        for x, y, dx, dy, val in labels:
+            perp_x, perp_y = -dy, dx
+            sign = 1 if val > 0 else -1
+            tx, ty = x + perp_x * sign * 0.7, y + perp_y * sign * 0.7
+            cx, cy = x - perp_x * sign * 0.7, y - perp_y * sign * 0.7
+            ax.annotate('TENSION', xy=(x, y), xytext=(tx, ty), color='red',
+                        fontsize=9, fontweight='bold', ha='center',
+                        arrowprops=dict(arrowstyle='->', color='red'))
+            ax.annotate('compression', xy=(x, y), xytext=(cx, cy), color='blue',
+                        fontsize=8, ha='center',
+                        arrowprops=dict(arrowstyle='->', color='blue', alpha=0.6))
+            ax.text(x, y - 0.4, f'M={val:.1f}', fontsize=8, ha='center', color='black')
+
+        # 跨內極值點(解析解)
+        from sd_framework import member_moment_curve
+        x = np.linspace(0, L, 400)
+        m_line = member_moment_curve(x, L, w, m_ab, -m_ba)
+        i_peak = int(np.argmin(m_line))
+        x_peak = x[i_peak]
+        ax.annotate('TENSION (bottom)', xy=(x_peak, 0), xytext=(x_peak, -1.1),
+                    color='red', fontsize=9, fontweight='bold', ha='center',
+                    arrowprops=dict(arrowstyle='->', color='red'))
+
+        ax.set_xlim(-1.5, L + 1.5)
+        ax.set_ylim(-1.5, 1.2)
+        ax.set_aspect('equal')
+        ax.set_title('Figure: Tension/Compression Side')
+        ax.grid(True, linestyle='--', alpha=0.4)
+        return True
+
+    def draw_deformed_shape(self, ax, moments_val, solution):
+        import sympy as sp
+        L, w = self.L, self.w
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        EI_val = 15000.0
+        s = sp.Symbol('s')
+
+        C1 = (-m_ba - m_ab - 0.5 * w * L**2) / L
+        M_hog = m_ab + C1 * s + 0.5 * w * s**2
+        M_sag = -M_hog
+        up = sp.integrate(M_sag / EI_val, s)  # A端固定, up0=0
+        u_expr = sp.integrate(up, s)          # A端固定, u0=0
+        u_func = sp.lambdify(s, u_expr, 'numpy')
+
+        scale = 80
+        x = np.linspace(0, L, 200)
+        y = u_func(x) * scale
+
+        ax.plot([0, L], [0, 0], '--', color='gray', lw=2, label='Original Beam')
+        ax.plot(x, y, 'b-', lw=2.5, label=f'Deformed Shape (x{scale} scale)')
+
+        ax.plot([0, 0], [-0.3, 0.3], 'k-', lw=3)
+        for dy in np.linspace(-0.25, 0.25, 6):
+            ax.plot([-0.15, 0], [dy - 0.15, dy], 'k-', lw=1)
+        ax.plot(L, y[-1] - 0.12, 'o', color='white', mec='k', ms=14, mew=2)
+        ax.plot([L - 0.25, L + 0.25], [y[-1] - 0.28, y[-1] - 0.28], 'k-', lw=2)
+
+        ax.set_xlim(-1.5, L + 1.5)
+        y_min = min(y.min(), -0.6)
+        ax.set_ylim(y_min - 0.5, 0.7)
+        ax.set_aspect('equal')
+        ax.set_title('Propped Cantilever: Original vs Deformed Shape')
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.08), ncol=2)
+        ax.grid(True, linestyle='--', alpha=0.5)
+        return True
+
     def draw_sfd(self, ax, moments_val):
         from sd_framework import member_shear_curve
         L, w = self.L, self.w

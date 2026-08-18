@@ -119,6 +119,87 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         R_C = V_bc_L
         return {'R_A (kN)': R_A, 'R_B (kN)': R_B, 'R_C (kN)': R_C}
 
+    def draw_tension_side(self, ax, moments_val):
+        L1, L2 = self.L1, self.L2
+        Ltot = L1 + L2
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
+        ax.plot([0, Ltot], [0, 0], 'k-', lw=4)
+
+        labels = [
+            (0, m_ab),
+            (L1, -m_ba),
+            (L1, m_bc),
+            (Ltot, -m_cb),
+        ]
+        for x, val in labels:
+            sign = 1 if val > 0 else -1
+            ax.annotate('TENSION', xy=(x, 0), xytext=(x, 0.7 * sign), color='red',
+                        fontsize=9, fontweight='bold', ha='center',
+                        arrowprops=dict(arrowstyle='->', color='red'))
+            ax.annotate('compression', xy=(x, 0), xytext=(x, -0.7 * sign), color='blue',
+                        fontsize=8, ha='center',
+                        arrowprops=dict(arrowstyle='->', color='blue', alpha=0.6))
+            ax.text(x, 0.05 * (-sign) - (0.15 if sign > 0 else -0.15), f'M={val:.1f}',
+                    fontsize=8, ha='center', color='black')
+
+        ax.set_xlim(-1.5, Ltot + 1.5)
+        ax.set_ylim(-1.3, 1.3)
+        ax.set_aspect('equal')
+        ax.set_title('Figure: Tension/Compression Side')
+        ax.grid(True, linestyle='--', alpha=0.4)
+        return True
+
+    def draw_deformed_shape(self, ax, moments_val, solution):
+        import sympy as sp
+        L1, L2, w1, w2 = self.L1, self.L2, self.w1, self.w2
+        Ltot = L1 + L2
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
+        EI_val = 15000.0
+        theta_B = float(solution[self.theta_B].subs(self.EI, EI_val))
+        s = sp.Symbol('s')
+
+        def transverse_u(M_i, M_j, length, w_load, u0, up0):
+            C1 = (M_j - M_i - 0.5 * w_load * length**2) / length
+            M_hog = M_i + C1 * s + 0.5 * w_load * s**2
+            M_sag = -M_hog
+            up = sp.integrate(M_sag / EI_val, s) + up0
+            u_expr = sp.integrate(up, s) + u0
+            return sp.lambdify(s, u_expr, 'numpy')
+
+        # AB跨: 近端A(固定,u=0,u'=0) -> 遠端B, AB跨自己有均佈載重w1
+        u_AB = transverse_u(m_ab, -m_ba, L1, w1, u0=0, up0=0)
+        # BC跨: 近端B(u=0,u'=theta_B已知,連續節點) -> 遠端C, BC跨有均佈載重w2
+        u_BC = transverse_u(m_bc, -m_cb, L2, w2, u0=0, up0=theta_B)
+
+        scale = 80
+        x1 = np.linspace(0, L1, 150)
+        x2 = np.linspace(0, L2, 150)
+        y1 = u_AB(x1) * scale
+        y2 = u_BC(x2) * scale
+
+        ax.plot([0, Ltot], [0, 0], '--', color='gray', lw=2, label='Original Beam')
+        ax.plot(x1, y1, 'b-', lw=2.5, label=f'Deformed Shape (x{scale} scale)')
+        ax.plot(L1 + x2, y2, 'b-', lw=2.5)
+
+        # 支承符號 (A固定, B/C滾支承)
+        ax.plot([0, 0], [-0.15, 0.15], 'k-', lw=3)
+        for dy in np.linspace(-0.12, 0.12, 5):
+            ax.plot([-0.08, 0], [dy - 0.08, dy], 'k-', lw=1)
+        for x0, y0 in [(L1, y1[-1]), (Ltot, y2[-1])]:
+            ax.plot(x0, y0 - 0.08, 'o', color='white', mec='k', ms=10, mew=1.5)
+            ax.plot([x0 - 0.18, x0 + 0.18], [y0 - 0.18, y0 - 0.18], 'k-', lw=1.5)
+
+        ax.set_xlim(-1.5, Ltot + 1.5)
+        y_min = min(y1.min(), y2.min(), -0.5)
+        ax.set_ylim(y_min - 0.4, 0.5)
+        ax.set_aspect('equal')
+        ax.set_title('Two-Span Beam: Original vs Deformed Shape')
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
+        ax.grid(True, linestyle='--', alpha=0.5)
+        return True
+
     def draw_sfd(self, ax, moments_val):
         from sd_framework import member_shear_curve
         L1, L2, w1, w2 = self.L1, self.L2, self.w1, self.w2
