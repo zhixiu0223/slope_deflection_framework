@@ -196,6 +196,19 @@ class SlopeDeflectionSolver:
         reactions = p.compute_reactions(moments_val)
         return moments, labeled_eqs, unknowns, sol, moments_val, reactions
 
+    @staticmethod
+    def _annotate_tension_note(ax):
+        """
+        在彎矩圖上加一行小提示，說明這張圖是拉力側繪製慣例——用英文避免
+        matplotlib預設字型(DejaVu Sans)缺中文字產生的警告(之前踩過這個坑，
+        中文標題會在Colab印出一長串UserWarning)。詳細的中文說明放在
+        print_teaching_handout()的Markdown文字裡，那邊走的是Markdown/HTML
+        渲染，沒有這個字型限制。
+        """
+        ax.text(0.5, -0.08, 'Bending moment diagram drawn on the tension side',
+                transform=ax.transAxes, ha='center', fontsize=8.5,
+                color='dimgray', style='italic')
+
     def _print_teaching_breakdown(self, moments_val, reactions, sol):
         """渲染 teaching_breakdown() 的內容 (題目/概念解析/公式引用/帶入數據/
         參考答案/關鍵字/評分要點)。solve_and_report() 的步驟8跟
@@ -261,15 +274,18 @@ class SlopeDeflectionSolver:
 
         fig2, ax2 = plt.subplots(figsize=(8, 6))
         p.draw_bmd(ax2, moments_val)
+        self._annotate_tension_note(ax2)
         plt.show()
         plt.close('all')
 
         display(Markdown(
             "## 4. 拉力彎矩圖對照（受拉/受壓側標註）\n\n"
-            "上面第3點的彎矩圖本身就是「拉力彎矩圖」——圖形凸起的那一側"
-            "就是實際受拉的那一側，已用最單純無爭議的案例(懸臂梁)驗證過"
-            "anastruct 本身就是這樣畫的，不是我們自己認定的。這裡額外把"
-            "受拉/受壓標成文字，方便直接核對。"
+            "本專案之彎矩圖採構件拉力側繪製。\n\n"
+            "彎矩正負號仍依局部座標系與構件端力約定定義；圖形所在側則"
+            "代表實際截面的拉力側，而非單純由正負號決定。\n\n"
+            "已用最單純無爭議的案例(懸臂梁)驗證過 anastruct 本身就是這樣"
+            "畫的，不是我們自己認定的。這裡額外把受拉/受壓標成文字，"
+            "方便直接核對。"
         ))
         fig_t, ax_t = plt.subplots(figsize=(8, 7))
         has_tension = p.draw_tension_side(ax_t, moments_val)
@@ -347,6 +363,7 @@ class SlopeDeflectionSolver:
         self._step_header(7, "繪製彎矩圖 (BMD)")
         fig2, ax2 = plt.subplots(figsize=(8, 6))
         p.draw_bmd(ax2, moments_val)
+        self._annotate_tension_note(ax2)
         plt.show()
         plt.close('all')
 
