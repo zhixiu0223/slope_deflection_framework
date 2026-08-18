@@ -215,6 +215,64 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.grid(True, linestyle='--', alpha=0.4)
         return True
 
+    def draw_deformed_shape(self, ax, moments_val, solution):
+        import sympy as sp
+        from sd_framework import member_offset_curve
+        H, L, w = self.H, self.L, self.w
+        m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
+        m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
+        m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
+
+        EI_val = 15000.0  # 跟anastruct驗證模型用同一個EI數值,才能直接比對
+        s = sp.Symbol('s')
+
+        def transverse_u(M_i, M_j, length, w_load, u0, up0):
+            C1 = (M_j - M_i - 0.5 * w_load * length**2) / length
+            M_hog = M_i + C1 * s + 0.5 * w_load * s**2
+            M_sag = -M_hog
+            up = sp.integrate(M_sag / EI_val, s) + up0
+            u_expr = sp.integrate(up, s) + u0
+            return sp.lambdify(s, u_expr, 'numpy')
+
+        theta_B = float(solution[self.theta_B].subs(self.EI, EI_val))
+        scale = 80
+        s_col = np.linspace(0, H, 100)
+        s_beam = np.linspace(0, L, 100)
+
+        # 柱AB: 近端A(固定,u=0,u'=0) -> 遠端B
+        u_AB = transverse_u(m_ab, -m_ba, H, 0.0, u0=0, up0=0)(s_col)
+        # 梁BC: 近端B(u=0,u'=theta_B已知) -> 遠端C
+        u_BC = transverse_u(m_bc, -m_cb, L, w, u0=0, up0=theta_B)(s_beam)
+        # 柱CD: 近端D(固定,u=0,u'=0) -> 遠端C
+        u_CD = transverse_u(m_dc, -m_cd, H, 0.0, u0=0, up0=0)(s_col)
+
+        # 局部橫向位移一定要再套 member_offset_curve 轉成畫圖座標,不能直接當
+        # 全域x/y用 (柱子的近端->遠端方向逆時針轉90度後的正方向其實是全域-x,
+        # 已用anastruct的show_displacement()實際畫圖座標逐點驗證過)
+        x_AB, y_AB = member_offset_curve(0, 0, 0, H, s_col, u_AB, scale)
+        x_BC, y_BC = member_offset_curve(0, H, L, H, s_beam, u_BC, scale)
+        x_CD, y_CD = member_offset_curve(L, 0, L, H, s_col, u_CD, scale)
+
+        ax.plot([0, 0], [0, H], '--', color='gray', lw=2, label='Original Structure')
+        ax.plot([0, L], [H, H], '--', color='gray', lw=2)
+        ax.plot([L, L], [H, 0], '--', color='gray', lw=2)
+        ax.plot(x_AB, y_AB, 'b-', lw=2.5, label=f'Deformed Shape (x{scale} scale)')
+        ax.plot(x_BC, y_BC, 'b-', lw=2.5)
+        ax.plot(x_CD, y_CD, 'b-', lw=2.5)
+
+        for x0 in (0, L):
+            ax.plot([x0 - 0.15, x0 + 0.15], [-0.02, -0.02], 'k-', lw=3)
+            for dx in np.linspace(-0.12, 0.12, 5):
+                ax.plot([x0 + dx, x0 + dx - 0.1], [0, -0.2], 'k-', lw=1)
+
+        ax.set_xlim(-2, L + 2)
+        ax.set_ylim(-1, H + 1.5)
+        ax.set_aspect('equal')
+        ax.set_title('No-Sway Frame: Original vs Deformed Shape')
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=2)
+        ax.grid(True, linestyle='--', alpha=0.4)
+        return True
+
     def draw_bmd(self, ax, moments_val):
         from sd_framework import member_moment_curve, member_offset_curve
         H, L, w = self.H, self.L, self.w

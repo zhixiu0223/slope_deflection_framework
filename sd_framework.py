@@ -143,6 +143,23 @@ class SlopeDeflectionProblem(ABC):
         """
         return False
 
+    def draw_deformed_shape(self, ax, moments_val: dict, solution: dict) -> bool:
+        """
+        (可選) 在同一張圖上疊加「原始結構 + 變形後形狀」。若模型有實作，
+        回傳 True 並把圖畫進傳入的 ax；預設不提供 (回傳 False)。
+
+        做法：對每根桿件，用拉力側 M(s) 轉成材料力學 sagging 慣例
+        (M_sag=-M_hog)，積分兩次 EI*u''=M_sag 得到「桿件局部座標系
+        正方向」(近端->遠端逆時針轉90度) 的橫向位移，邊界條件依各桿件
+        的支承/連接方式而定 (case-specific，沒辦法通用化)。**算出來的
+        u(s) 一定要再套 member_offset_curve 轉成畫圖座標，不能直接當
+        全域x或y用**——這是實際踩過的坑：柱子的近端->遠端方向是垂直的，
+        逆時針轉90度後的「正方向」其實是全域-x，直接套全域+x會整個
+        鏡像顛倒(已用anastruct的show_displacement()實際畫圖座標逐點
+        驗證過，修正後精確吻合)。
+        """
+        return False
+
     def teaching_breakdown(self, moments_val: dict, reactions: dict, solution: dict) -> list:
         """
         (可選) 回傳這個模型的「教學詳解 + 評分要點」分解，用於步驟8。
@@ -294,6 +311,20 @@ class SlopeDeflectionSolver:
         else:
             plt.close(fig_t)
             print("(此模型尚未實作拉力側標註圖，略過)")
+
+        display(Markdown(
+            "## 5. 變形圖對照（原始結構 vs 變形後形狀）\n\n"
+            "灰色虛線是原始結構，藍色實線是變形後形狀（放大顯示，方便肉眼"
+            "比對）。這是從彎矩圖本身反推出來的，不是重新用矩陣位移法算——"
+            "已用 anastruct 的 `show_displacement()` 逐點比對過畫圖座標。"
+        ))
+        fig_d, ax_d = plt.subplots(figsize=(8, 7))
+        has_deformed = p.draw_deformed_shape(ax_d, moments_val, sol)
+        if has_deformed:
+            plt.show()
+        else:
+            plt.close(fig_d)
+            print("(此模型尚未實作變形圖，略過)")
 
     def solve_and_report(self):
         p = self.problem
