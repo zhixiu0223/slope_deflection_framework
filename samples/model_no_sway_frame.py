@@ -31,6 +31,18 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         self.EI_numeric = EI_numeric  # 只用在變形圖的實際撓度計算
         self.theta_B, self.theta_C = sp.symbols('theta_B theta_C', real=True)
 
+    @classmethod
+    def from_interactive_input(cls):
+        """互動輸入版本：Colab、純Linux終端機、VSCode都能用(只靠input())。"""
+        from sd_framework import prompt_for_params
+        params = prompt_for_params([
+            ('H', '柱高(m)', 4.0, float),
+            ('L', '梁跨度(m)', 6.0, float),
+            ('w', '梁上均佈載重(kN/m)', 24.0, float),
+            ('EI_numeric', 'EI數值(只影響變形圖大小,不影響彎矩/剪力)', 15000.0, float),
+        ])
+        return cls(**params)
+
     def get_unknowns(self):
         return {'\\theta_B': self.theta_B, '\\theta_C': self.theta_C}
 
@@ -70,12 +82,14 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
             ax.annotate('', xy=(x, H + 0.05), xytext=(x, H + 0.4),
                         arrowprops=dict(arrowstyle='->', color='red', lw=1.2))
         ax.text(L / 2, H + 0.6, f'$w={w}$ kN/m', color='red', ha='center', fontsize=11)
-        # theta_B, theta_C
-        ax.annotate('', xy=(-0.35, H + 0.35), xytext=(0.35, H + 0.35),
+        # theta_B, theta_C: 新慣例下正值=順時針、負值=逆時針，箭頭方向要對應
+        # (θ_B算出來是正值=順時針，θ_C是負值=逆時針，已用anastruct驗證過
+        # 真正的物理旋轉方向，箭頭要畫成看得出來"正的就是順時針"這個規則)
+        ax.annotate('', xy=(0.35, H + 0.35), xytext=(-0.35, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5',
                                      color='purple', lw=2))
         ax.text(0, H + 0.75, r'$\theta_B$', color='purple', fontsize=12, ha='center')
-        ax.annotate('', xy=(L - 0.35, H + 0.35), xytext=(L + 0.35, H + 0.35),
+        ax.annotate('', xy=(L + 0.35, H + 0.35), xytext=(L - 0.35, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
         ax.text(L, H + 0.75, r'$\theta_C$', color='purple', fontsize=12, ha='center')
@@ -89,8 +103,8 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
     def build_moment_equations(self):
         EI, H, L, w = self.EI, self.H, self.L, self.w
         thB, thC = self.theta_B, self.theta_C
-        FEM_BC = w * L**2 / 12
-        FEM_CB = -w * L**2 / 12
+        FEM_BC = -w * L**2 / 12
+        FEM_CB = w * L**2 / 12
         return {
             'M_{AB}': 2 * EI / H * thB,
             'M_{BA}': 2 * EI / H * (2 * thB),
@@ -136,20 +150,20 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         # 柱、梁都用同一個 member_offset_curve，不再各自手寫x/y公式
         # (已用anastruct實際畫圖座標精確驗證過，見對話記錄)
         s1 = np.linspace(0, H, 100)
-        v1 = member_shear_curve(s1, H, 0.0, m_ab, -m_ba)
+        v1 = member_shear_curve(s1, H, 0.0, -m_ab, m_ba)
         x1, y1 = member_offset_curve(0, 0, 0, H, s1, v1, scale)
         ax.plot(x1, y1, 'b-', lw=2, label='SFD')
         ax.fill(np.append(x1, [0, 0]), np.append(y1, [H, 0]), color='blue', alpha=0.15)
 
         s2 = np.linspace(0, L, 200)
-        v2 = member_shear_curve(s2, L, w, m_bc, -m_cb)
+        v2 = member_shear_curve(s2, L, w, -m_bc, m_cb)
         x2, y2 = member_offset_curve(0, H, L, H, s2, v2, scale)
         ax.plot(x2, y2, 'b-', lw=2)
         ax.fill(np.append(x2, [L, 0]), np.append(y2, [H, H]), color='blue', alpha=0.15)
 
         # 柱CD: 近端D(L,0) -> 遠端C(L,H)，跟AB統一方向(由下往上)
         s3 = np.linspace(0, H, 100)
-        v3 = member_shear_curve(s3, H, 0.0, m_dc, -m_cd)
+        v3 = member_shear_curve(s3, H, 0.0, -m_dc, m_cd)
         x3, y3 = member_offset_curve(L, 0, L, H, s3, v3, scale)
         ax.plot(x3, y3, 'b-', lw=2)
         ax.fill(np.append(x3, [L, L]), np.append(y3, [H, 0]), color='blue', alpha=0.15)
@@ -183,12 +197,12 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         # 決定偏移方向 = 受拉側，這是跟 member_offset_curve 完全一致的
         # 判斷方式，只是這裡直接標文字不畫曲線
         labels = [
-            (0, 0, 0, 1, m_ab),
-            (0, H, 0, 1, -m_ba),
-            (0, H, 1, 0, m_bc),
-            (L, H, 1, 0, -m_cb),
-            (L, 0, 0, 1, m_dc),
-            (L, H, 0, 1, -m_cd),
+            (0, 0, 0, 1, -m_ab),
+            (0, H, 0, 1, m_ba),
+            (0, H, 1, 0, -m_bc),
+            (L, H, 1, 0, m_cb),
+            (L, 0, 0, 1, -m_dc),
+            (L, H, 0, 1, m_cd),
         ]
         for x, y, dx, dy, val in labels:
             perp_x, perp_y = -dy, dx
@@ -235,17 +249,20 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
             u_expr = sp.integrate(up, s) + u0
             return sp.lambdify(s, u_expr, 'numpy')
 
-        theta_B = float(solution[self.theta_B].subs(self.EI, EI_val))
+        theta_B = -float(solution[self.theta_B].subs(self.EI, EI_val))
+        # 上面取負號: 新慣例下 theta_B 本身正負號跟"物理上真正的轉角方向"是反的
+        # (因為新慣例翻轉了近端/遠端的negate對象，跟M_hog(s)的實際物理值配合，
+        # 邊界條件要用「物理上真正的轉角」，不能直接套算出來的theta_B數值)
         scale = 80
         s_col = np.linspace(0, H, 100)
         s_beam = np.linspace(0, L, 100)
 
         # 柱AB: 近端A(固定,u=0,u'=0) -> 遠端B
-        u_AB = transverse_u(m_ab, -m_ba, H, 0.0, u0=0, up0=0)(s_col)
+        u_AB = transverse_u(-m_ab, m_ba, H, 0.0, u0=0, up0=0)(s_col)
         # 梁BC: 近端B(u=0,u'=theta_B已知) -> 遠端C
-        u_BC = transverse_u(m_bc, -m_cb, L, w, u0=0, up0=theta_B)(s_beam)
+        u_BC = transverse_u(-m_bc, m_cb, L, w, u0=0, up0=theta_B)(s_beam)
         # 柱CD: 近端D(固定,u=0,u'=0) -> 遠端C
-        u_CD = transverse_u(m_dc, -m_cd, H, 0.0, u0=0, up0=0)(s_col)
+        u_CD = transverse_u(-m_dc, m_cd, H, 0.0, u0=0, up0=0)(s_col)
 
         # 局部橫向位移一定要再套 member_offset_curve 轉成畫圖座標,不能直接當
         # 全域x/y用 (柱子的近端->遠端方向逆時針轉90度後的正方向其實是全域-x,
@@ -287,19 +304,19 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.plot([L, L], [H, 0], 'k-', lw=3)
 
         s1 = np.linspace(0, H, 200)
-        m1 = member_moment_curve(s1, H, 0.0, m_ab, -m_ba)
+        m1 = member_moment_curve(s1, H, 0.0, -m_ab, m_ba)
         x1, y1 = member_offset_curve(0, 0, 0, H, s1, m1, scale)
         ax.plot(x1, y1, 'r--', lw=2, label='BMD')
         ax.fill(np.append(x1, [0, 0]), np.append(y1, [H, 0]), color='red', alpha=0.15)
 
         s2 = np.linspace(0, L, 200)
-        m2 = member_moment_curve(s2, L, w, m_bc, -m_cb)
+        m2 = member_moment_curve(s2, L, w, -m_bc, m_cb)
         x2, y2 = member_offset_curve(0, H, L, H, s2, m2, scale)
         ax.plot(x2, y2, 'r--', lw=2)
         ax.fill(np.append(x2, [L, 0]), np.append(y2, [H, H]), color='red', alpha=0.15)
 
         s3 = np.linspace(0, H, 200)
-        m3 = member_moment_curve(s3, H, 0.0, m_dc, -m_cd)
+        m3 = member_moment_curve(s3, H, 0.0, -m_dc, m_cd)
         x3, y3 = member_offset_curve(L, 0, L, H, s3, m3, scale)
         ax.plot(x3, y3, 'r--', lw=2)
         ax.fill(np.append(x3, [L, L]), np.append(y3, [H, 0]), color='red', alpha=0.15)
@@ -314,7 +331,7 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.text(x3[-1], y3[-1], f'{m3[-1]:.1f}', color='darkred', fontsize=8, ha='left', va='bottom')
         ax.text(x3[0], y3[0], f'{m3[0]:.1f}', color='darkred', fontsize=8, ha='left', va='top')
 
-        self._label_interior_extremum_xy(ax, 0, H, L, H, w, m_bc, -m_cb, scale)
+        self._label_interior_extremum_xy(ax, 0, H, L, H, w, -m_bc, m_cb, scale)
 
         ax.set_xlim(-4, L + 4)
         ax.set_ylim(-1, H + 3)

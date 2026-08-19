@@ -2,9 +2,84 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
 from abc import ABC, abstractmethod
-from IPython.display import Markdown, display
 
 sp.init_printing()
+
+# ============================================================
+# 環境偵測：同一份程式碼要能在 Jupyter/Colab (有 IPython kernel，
+# display()/plt.show() 都能正常渲染) 跟純終端機/VSCode直接執行
+# (python3 xxx.py，沒有IPython kernel，display()只會印物件repr、
+# plt.show()在沒有視窗系統時什麼都不會顯示) 兩種環境都正常運作。
+# ============================================================
+try:
+    from IPython import get_ipython
+    _ipy = get_ipython()
+    IN_NOTEBOOK = _ipy is not None and hasattr(_ipy, 'kernel')
+except ImportError:
+    IN_NOTEBOOK = False
+
+if IN_NOTEBOOK:
+    from IPython.display import Markdown, display
+else:
+    class Markdown:
+        """純終端機環境用的Markdown替代品：只存文字，print時原樣印出
+        (不渲染標題#、粗體**這些語法，但內容完整可讀)。"""
+        def __init__(self, text):
+            self.text = text
+
+    def display(obj):
+        """純終端機環境用的display()替代品："""
+        if isinstance(obj, Markdown):
+            print(obj.text)
+        elif isinstance(obj, sp.Basic):
+            sp.pprint(obj)
+        else:
+            print(obj)
+
+_fig_counter = [0]
+
+
+def _show_fig(prefix="figure"):
+    """
+    取代裸的 plt.show()：Jupyter/Colab 環境正常顯示；純終端機環境沒有
+    畫面可以顯示，改成存檔到當前目錄並印出檔名，不會讓圖「憑空消失」。
+    """
+    if IN_NOTEBOOK:
+        plt.show()
+    else:
+        _fig_counter[0] += 1
+        fname = f"{prefix}_{_fig_counter[0]}.png"
+        plt.gcf().savefig(fname, dpi=110, bbox_inches='tight')
+        print(f"[圖已存檔: {fname}]")
+        plt.close()
+
+
+# ============================================================
+# 通用互動輸入：只用 input()，不依賴 ipywidgets 這種只有特定 notebook
+# 環境才有的東西——Colab、純 Linux 終端機(python3 xxx.py)、VSCode
+# (不管是 Jupyter 分頁還是直接跑 .py 檔) 全部都能動。
+# ============================================================
+def prompt_for_params(param_specs):
+    """
+    param_specs: list of (name, description, default, type_cast)
+    互動詢問每個參數，直接按 Enter 就用預設值。回傳 dict {name: value}。
+    """
+    print("=" * 50)
+    print("互動輸入（直接按 Enter 使用預設值）")
+    print("=" * 50)
+    result = {}
+    for name, desc, default, cast in param_specs:
+        raw = input(f"{name} ({desc}) [預設 {default}]: ").strip()
+        try:
+            result[name] = cast(raw) if raw else default
+        except ValueError:
+            print(f"  輸入無法轉換，使用預設值 {default}")
+            result[name] = default
+    print("=" * 50)
+    for k, v in result.items():
+        print(f"  {k} = {v}")
+    print("=" * 50)
+    return result
 
 
 # ============================================================
@@ -253,75 +328,53 @@ class SlopeDeflectionSolver:
 
     def print_teaching_handout(self):
         """
-        產生一份可以直接複製當教學講義用的輸出，只有三塊、沒有步驟編號、
-        沒有中間的符號方程式/平衡方程式這些過程 (那些留在 solve_and_report()
-        裡)：
-          1. 結構受力圖
-          2. 教學詳解與評分要點 (原本步驟8的內容)
-          3. 剪力圖(SFD) + 彎矩圖(BMD)
-        適合放在 solve_and_report() 那個 cell 的下一個 cell，單獨執行、
-        單獨截圖/複製，不用夾雜求解過程。
+        產生一份純粹「繪圖」的教學輸出，不含文字推導、不含評分要點，只有
+        五張圖 (a~e)，適合放在 solve_and_report() 那個 cell 的下一個 cell，
+        單獨執行、單獨截圖/複製：
+          a. 結構受力圖
+          b. 剪力圖 (SFD)
+          c. 彎矩圖 (BMD)
+          d. 拉力側標註圖
+          e. 變形圖
         """
         p = self.problem
         moments, labeled_eqs, unknowns, sol, moments_val, reactions = self._solve_core()
 
-        display(Markdown("## 1. 結構受力圖與自由度"))
-        display(Markdown(p.describe()))
+        display(Markdown("### a. 結構受力圖"))
         fig1, ax1 = plt.subplots(figsize=(8, 6))
         p.draw_geometry(ax1)
-        plt.show()
-        display(Markdown(
-            "**⚠️ 自由度選取**（這一步選錯或漏掉，後面所有方程式都會建立在"
-            "錯誤基礎上、整題全錯，是最需要覆核的一步）：\n\n" + p.describe_dof()
-        ))
+        _show_fig("structure")
 
-        display(Markdown("## 2. 教學詳解與評分要點"))
-        has_breakdown = self._print_teaching_breakdown(moments_val, reactions, sol)
-        if not has_breakdown:
-            print("(此模型尚未提供教學詳解)")
-
-        display(Markdown("## 3. 剪力圖 (SFD) 與彎矩圖 (BMD)"))
+        display(Markdown("### b. 剪力圖 (SFD)"))
         fig_sfd, ax_sfd = plt.subplots(figsize=(8, 5))
         has_sfd = p.draw_sfd(ax_sfd, moments_val)
         if has_sfd:
-            plt.show()
+            _show_fig("sfd")
         else:
             plt.close(fig_sfd)
             print("(此模型尚未實作剪力圖，略過)")
 
+        display(Markdown("### c. 彎矩圖 (BMD)"))
         fig2, ax2 = plt.subplots(figsize=(8, 6))
         p.draw_bmd(ax2, moments_val)
         self._annotate_tension_note(ax2)
-        plt.show()
+        _show_fig("bmd")
         plt.close('all')
 
-        display(Markdown(
-            "## 4. 拉力彎矩圖對照（受拉/受壓側標註）\n\n"
-            "本專案之彎矩圖採構件拉力側繪製。\n\n"
-            "彎矩正負號仍依局部座標系與構件端力約定定義；圖形所在側則"
-            "代表實際截面的拉力側，而非單純由正負號決定。\n\n"
-            "已用最單純無爭議的案例(懸臂梁)驗證過 anastruct 本身就是這樣"
-            "畫的，不是我們自己認定的。這裡額外把受拉/受壓標成文字，"
-            "方便直接核對。"
-        ))
+        display(Markdown("### d. 拉力側標註圖"))
         fig_t, ax_t = plt.subplots(figsize=(8, 7))
         has_tension = p.draw_tension_side(ax_t, moments_val)
         if has_tension:
-            plt.show()
+            _show_fig("tension_side")
         else:
             plt.close(fig_t)
             print("(此模型尚未實作拉力側標註圖，略過)")
 
-        display(Markdown(
-            "## 5. 變形圖對照（原始結構 vs 變形後形狀）\n\n"
-            "灰色虛線是原始結構，藍色實線是變形後形狀（放大顯示，方便肉眼"
-            "比對）。這是從彎矩圖本身反推出來的，不是重新用矩陣位移法算——"
-            "已用 anastruct 的 `show_displacement()` 逐點比對過畫圖座標。"
-        ))
+        display(Markdown("### e. 變形圖"))
         fig_d, ax_d = plt.subplots(figsize=(8, 7))
         has_deformed = p.draw_deformed_shape(ax_d, moments_val, sol)
         if has_deformed:
-            plt.show()
+            _show_fig("deformed")
         else:
             plt.close(fig_d)
             print("(此模型尚未實作變形圖，略過)")
@@ -335,7 +388,7 @@ class SlopeDeflectionSolver:
         display(Markdown(p.describe()))
         fig1, ax1 = plt.subplots(figsize=(8, 6))
         p.draw_geometry(ax1)
-        plt.show()
+        _show_fig("structure")
         display(Markdown(
             "**② ⚠️ 自由度選取**（這一步選錯或漏掉，後面所有方程式都會建立在"
             "錯誤基礎上、整題全錯，是最需要覆核的一步）：\n\n" + p.describe_dof()
@@ -380,25 +433,7 @@ class SlopeDeflectionSolver:
             for name, val in reactions.items():
                 print(f"-> {name} = {val:.3f}")
 
-        # ---------------- 步驟6：剪力圖 (SFD) ----------------
-        self._step_header(6, "繪製剪力圖 (SFD)")
-        fig_sfd, ax_sfd = plt.subplots(figsize=(8, 5))
-        has_sfd = p.draw_sfd(ax_sfd, moments_val)
-        if has_sfd:
-            plt.show()
-        else:
-            plt.close(fig_sfd)
-            print("(此模型尚未實作剪力圖，略過)")
-
-        # ---------------- 步驟7：彎矩圖 (BMD) ----------------
-        self._step_header(7, "繪製彎矩圖 (BMD)")
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
-        p.draw_bmd(ax2, moments_val)
-        self._annotate_tension_note(ax2)
-        plt.show()
-        plt.close('all')
-
-        # 教學詳解與評分要點已移到 print_teaching_handout()，這裡不再重複
-        # (solve_and_report() 專注在「手算過程」，教學詳解是另一種呈現方式)
+        # ---------------- 步驟6：剪力圖、彎矩圖已移到 print_teaching_handout() ----------------
+        # 手算詳解專注在推導過程本身，圖放在下一個cell的教學講義裡，避免重複
 
         return {"moments": moments_val, "reactions": reactions, "solution": sol}
