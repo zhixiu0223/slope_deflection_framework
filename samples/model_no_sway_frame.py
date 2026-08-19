@@ -238,7 +238,7 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
         m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
 
-        EI_val = self.EI_numeric  # 跟anastruct驗證模型用同一個EI數值,才能直接比對
+        EI_val = self.EI_numeric
         s = sp.Symbol('s')
 
         def transverse_u(M_i, M_j, length, w_load, u0, up0):
@@ -249,24 +249,26 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
             u_expr = sp.integrate(up, s) + u0
             return sp.lambdify(s, u_expr, 'numpy')
 
-        theta_B = -float(solution[self.theta_B].subs(self.EI, EI_val))
-        # 上面取負號: 新慣例下 theta_B 本身正負號跟"物理上真正的轉角方向"是反的
-        # (因為新慣例翻轉了近端/遠端的negate對象，跟M_hog(s)的實際物理值配合，
-        # 邊界條件要用「物理上真正的轉角」，不能直接套算出來的theta_B數值)
+        theta_B = float(solution[self.theta_B].subs(self.EI, EI_val))
+        # 本Case用「近端負、遠端正」的FEM慣例(跟Case-01/02的「近端正、遠端負」
+        # 相反)，這是刻意選擇的、傾角變位法仍然順時針為正——但這個選擇連帶
+        # 讓「畫變形圖時哪一端要negate」也整套反過來，已用anastruct的
+        # show_displacement()實際畫圖座標逐點測試過(先單獨測梁、再單獨測柱、
+        # 確認規則一致後才接上來)，用兩種可能各自代入比對才找到正確答案，
+        # 不是直接套用原本Case-01/02的規則：
+        #   近端要negate、遠端直接用(不negate)——跟原本Case-01/02完全相反
+        #   邊界條件用的theta也要negate(-theta_B，不是theta_B本身)
         scale = 80
         s_col = np.linspace(0, H, 100)
         s_beam = np.linspace(0, L, 100)
 
         # 柱AB: 近端A(固定,u=0,u'=0) -> 遠端B
         u_AB = transverse_u(-m_ab, m_ba, H, 0.0, u0=0, up0=0)(s_col)
-        # 梁BC: 近端B(u=0,u'=theta_B已知) -> 遠端C
-        u_BC = transverse_u(-m_bc, m_cb, L, w, u0=0, up0=theta_B)(s_beam)
+        # 梁BC: 近端B(u=0,u'=-theta_B已知,連續節點) -> 遠端C
+        u_BC = transverse_u(-m_bc, m_cb, L, w, u0=0, up0=-theta_B)(s_beam)
         # 柱CD: 近端D(固定,u=0,u'=0) -> 遠端C
         u_CD = transverse_u(-m_dc, m_cd, H, 0.0, u0=0, up0=0)(s_col)
 
-        # 局部橫向位移一定要再套 member_offset_curve 轉成畫圖座標,不能直接當
-        # 全域x/y用 (柱子的近端->遠端方向逆時針轉90度後的正方向其實是全域-x,
-        # 已用anastruct的show_displacement()實際畫圖座標逐點驗證過)
         x_AB, y_AB = member_offset_curve(0, 0, 0, H, s_col, u_AB, scale)
         x_BC, y_BC = member_offset_curve(0, H, L, H, s_beam, u_BC, scale)
         x_CD, y_CD = member_offset_curve(L, 0, L, H, s_col, u_CD, scale)
