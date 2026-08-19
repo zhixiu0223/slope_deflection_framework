@@ -418,9 +418,21 @@ class SlopeDeflectionSolver:
 
         # ---------------- 步驟4：解聯立方程式 ----------------
         self._step_header(4, "求解聯立方程式 (未知位移量)")
-        display(Markdown("**位移求解結果：**"))
+        display(Markdown("**① 符號解**（保留 EI 符號，這是傾角變位法教學上的標準步驟——"
+                          "對單一材料/均勻EI的靜不定結構，解出來的桿端彎矩最終會跟EI無關，"
+                          "所以先看符號解能清楚看出這個特性）："))
         for name, sym in unknowns.items():
             display(sp.Eq(sp.Symbol(name), sol[sym]))
+
+        EI_numeric = getattr(p, 'EI_numeric', None)
+        if EI_numeric is not None:
+            display(Markdown(
+                f"**② 代入 EI 數值**（EI = {EI_numeric}，方便直接跟 anastruct、"
+                "OpenSeesPy 這類數值工具的結果對照，不用自己心算分數/小數）："
+            ))
+            for name, sym in unknowns.items():
+                val_numeric = float(sol[sym].subs(p.EI, EI_numeric))
+                display(sp.Eq(sp.Symbol(name), round(val_numeric, 6)))
 
         # ---------------- 步驟5：回代求彎矩與反力 ----------------
         self._step_header(5, "計算真實桿端彎矩與反力")

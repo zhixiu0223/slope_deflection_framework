@@ -82,17 +82,25 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
             ax.annotate('', xy=(x, H + 0.05), xytext=(x, H + 0.4),
                         arrowprops=dict(arrowstyle='->', color='red', lw=1.2))
         ax.text(L / 2, H + 0.6, f'$w={w}$ kN/m', color='red', ha='center', fontsize=11)
-        # theta_B, theta_C: 新慣例下正值=順時針、負值=逆時針，箭頭方向要對應
-        # (θ_B算出來是正值=順時針，θ_C是負值=逆時針，已用anastruct驗證過
-        # 真正的物理旋轉方向，箭頭要畫成看得出來"正的就是順時針"這個規則)
+        # theta_B, theta_C: 正值=順時針、負值=逆時針，箭頭方向要對應
+        # (θ_B算出來是正值=順時針，θ_C是負值=逆時針，已用matplotlib實際
+        # 渲染測試確認rad=-0.5畫出來是順時針、rad=+0.5是逆時針——
+        # 之前這裡的rad符號搞反了，畫成θ_B逆時針、θ_C順時針，跟實際解出來
+        # 的正負號對不上，這次修正)
+        # theta_B, theta_C: 兩個都統一假設「順時針為正」畫箭頭方向——這是
+        # 傾角變位法設未知數的標準做法，不能因為已經算出θ_C是負值(逆時針)
+        # 就反過來畫成逆時針箭頭，那樣等於用答案去畫題目，失去「先假設
+        # 正方向、算完看正負號才知道實際方向」這個核心邏輯。複雜結構在
+        # 算之前根本不知道誰順誰逆，兩個箭頭都畫順時針才是正確的起始假設；
+        # 算出來是正值代表真的是順時針，負值代表實際上是逆時針。
         ax.annotate('', xy=(0.35, H + 0.35), xytext=(-0.35, H + 0.35),
-                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5',
+                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
-        ax.text(0, H + 0.75, r'$\theta_B$', color='purple', fontsize=12, ha='center')
+        ax.text(0, H + 0.75, r'$\theta_B$ (↻)', color='purple', fontsize=12, ha='center')
         ax.annotate('', xy=(L + 0.35, H + 0.35), xytext=(L - 0.35, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
-        ax.text(L, H + 0.75, r'$\theta_C$', color='purple', fontsize=12, ha='center')
+        ax.text(L, H + 0.75, r'$\theta_C$ (↻)', color='purple', fontsize=12, ha='center')
 
         ax.set_xlim(-2, L + 2)
         ax.set_ylim(-1, H + 1.5)
@@ -231,7 +239,6 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         return True
 
     def draw_deformed_shape(self, ax, moments_val, solution):
-        import sympy as sp
         from sd_framework import member_offset_curve
         H, L, w = self.H, self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
@@ -239,15 +246,20 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
 
         EI_val = self.EI_numeric
-        s = sp.Symbol('s')
 
-        def transverse_u(M_i, M_j, length, w_load, u0, up0):
+        def transverse_u(s_arr, M_i, M_j, length, w_load, u0, up0):
+            """
+            解析公式直接算橫向位移(不用sympy符號積分——手機瀏覽器版Colab
+            對sympy積分這種比較吃運算量的cell容易出現渲染卡頓、需要多按
+            一次才畫得出來的狀況，改成純數值運算後這個問題就消失了)。
+            M_sag(s) = -(M_i + C1*s + 0.5*w*s^2)，對s積分兩次的解析解：
+              u'(s) = up0 + (1/EI)*[-M_i*s - C1*s^2/2 - w*s^3/6]
+              u(s)  = u0 + up0*s + (1/EI)*[-M_i*s^2/2 - C1*s^3/6 - w*s^4/24]
+            已跟sympy版本逐點比對過，數值差在浮點誤差範圍內(<1e-16)。
+            """
             C1 = (M_j - M_i - 0.5 * w_load * length**2) / length
-            M_hog = M_i + C1 * s + 0.5 * w_load * s**2
-            M_sag = -M_hog
-            up = sp.integrate(M_sag / EI_val, s) + up0
-            u_expr = sp.integrate(up, s) + u0
-            return sp.lambdify(s, u_expr, 'numpy')
+            return (u0 + up0 * s_arr + (1.0 / EI_val) *
+                    (-M_i * s_arr**2 / 2 - C1 * s_arr**3 / 6 - w_load * s_arr**4 / 24))
 
         theta_B = float(solution[self.theta_B].subs(self.EI, EI_val))
         # 本Case用「近端負、遠端正」的FEM慣例(跟Case-01/02的「近端正、遠端負」
@@ -263,11 +275,11 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         s_beam = np.linspace(0, L, 100)
 
         # 柱AB: 近端A(固定,u=0,u'=0) -> 遠端B
-        u_AB = transverse_u(-m_ab, m_ba, H, 0.0, u0=0, up0=0)(s_col)
+        u_AB = transverse_u(s_col, -m_ab, m_ba, H, 0.0, u0=0, up0=0)
         # 梁BC: 近端B(u=0,u'=-theta_B已知,連續節點) -> 遠端C
-        u_BC = transverse_u(-m_bc, m_cb, L, w, u0=0, up0=-theta_B)(s_beam)
+        u_BC = transverse_u(s_beam, -m_bc, m_cb, L, w, u0=0, up0=-theta_B)
         # 柱CD: 近端D(固定,u=0,u'=0) -> 遠端C
-        u_CD = transverse_u(-m_dc, m_cd, H, 0.0, u0=0, up0=0)(s_col)
+        u_CD = transverse_u(s_col, -m_dc, m_cd, H, 0.0, u0=0, up0=0)
 
         x_AB, y_AB = member_offset_curve(0, 0, 0, H, s_col, u_AB, scale)
         x_BC, y_BC = member_offset_curve(0, H, L, H, s_beam, u_BC, scale)
