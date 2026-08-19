@@ -66,8 +66,8 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
     def build_moment_equations(self):
         EI, L, w = self.EI, self.L, self.w
         thB = self.theta_B
-        FEM_AB = w * L**2 / 12
-        FEM_BA = -w * L**2 / 12
+        FEM_AB = -w * L**2 / 12
+        FEM_BA = w * L**2 / 12
         return {
             'M_{AB}': 2 * EI / L * thB + FEM_AB,
             'M_{BA}': 2 * EI / L * (2 * thB) + FEM_BA,
@@ -90,10 +90,10 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         r_a = reactions['R_A (kN, 固定端反力)']
         r_b = reactions['R_B (kN, 滾支承反力)']
-        FEM_AB, FEM_BA = w * L**2 / 12, -w * L**2 / 12
-        C1 = (0 - m_ab - 0.5 * w * L**2) / L  # 剪力函數係數 (從A端起算)
+        FEM_AB, FEM_BA = -w * L**2 / 12, w * L**2 / 12
+        C1 = (0 - (-m_ab) - 0.5 * w * L**2) / L  # 剪力函數係數(從A端起算,近端要negate)
         x_star = -C1 / w
-        m_star = m_ab + C1 * x_star + 0.5 * w * x_star**2
+        m_star = -m_ab + C1 * x_star + 0.5 * w * x_star**2
 
         return [
             {
@@ -102,11 +102,11 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
                            f'承受均佈載重 w={w} kN/m，試以傾角變位法列出 '
                            r'$M_{AB}, M_{BA}$ 的表達式。',
                 'concept': '固定端 θ_A=0，B 端轉角 θ_B 未知；沒有側移(ψ=0)。'
-                           '均佈載重的固定端彎矩(FEM)近端正、遠端負，這是套用'
-                           '一般式前要先查出來的兩個常數。',
+                           '均佈載重的固定端彎矩(FEM)近端負、遠端正(傳統教科書慣例)，'
+                           '這是套用一般式前要先查出來的兩個常數。',
                 'formula': r'$M_{ij}=\frac{2EI}{L}(2\theta_i+\theta_j-3\psi)+FEM_{ij}, '
-                           r'\quad FEM_{AB}=\frac{wL^2}{12},\ FEM_{BA}=-\frac{wL^2}{12}$',
-                'substitution': f'L={L}, w={w} → FEM_AB=+{FEM_AB:.1f}, FEM_BA={FEM_BA:.1f}；'
+                           r'\quad FEM_{AB}=-\frac{wL^2}{12},\ FEM_{BA}=\frac{wL^2}{12}$',
+                'substitution': f'L={L}, w={w} → FEM_AB={FEM_AB:.1f}, FEM_BA=+{FEM_BA:.1f}；'
                                 r'$\theta_A=0, \psi=0$',
                 'answer': (rf'$M_{{AB}}=\frac{{2EI}}{{{L}}}\theta_B+{FEM_AB:.1f}$'
                            rf', $M_{{BA}}=\frac{{2EI}}{{{L}}}(2\theta_B){FEM_BA:+.1f}$'),
@@ -126,7 +126,7 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
                            '只是這裡只接了一根桿件)。',
                 'formula': r'$M_{BA}=0$',
                 'substitution': f'代入第1小題的 M_BA 表達式',
-                'answer': rf'$\theta_B=\dfrac{{{-FEM_BA:.1f}}}{{2EI/{L}}}=\dfrac{{90}}{{EI}}$',
+                'answer': rf'$\theta_B=\dfrac{{{-FEM_BA:.1f}}}{{4EI/{L}}}=\dfrac{{-90}}{{EI}}$',
                 'keywords': ['邊界條件', 'M_BA=0', '滾支承不傳彎矩'],
                 'grading': [
                     ('正確寫出邊界條件方程式', 2),
@@ -191,8 +191,8 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
 
         # (x, y, 近端->遠端方向dx,dy, 該處physical值)
         labels = [
-            (0, 0, 1, 0, m_ab),   # A端
-            (L, 0, 1, 0, -m_ba),  # B端 (遠端, physical值要negate)
+            (0, 0, 1, 0, -m_ab),  # A端 (近端, physical值要negate)
+            (L, 0, 1, 0, m_ba),   # B端 (遠端, physical值直接用)
         ]
         for x, y, dx, dy, val in labels:
             perp_x, perp_y = -dy, dx
@@ -210,7 +210,7 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
         # 跨內極值點(解析解)
         from sd_framework import member_moment_curve
         x = np.linspace(0, L, 400)
-        m_line = member_moment_curve(x, L, w, m_ab, -m_ba)
+        m_line = member_moment_curve(x, L, w, -m_ab, m_ba)
         i_peak = int(np.argmin(m_line))
         x_peak = x[i_peak]
         ax.annotate('TENSION (bottom)', xy=(x_peak, 0), xytext=(x_peak, -1.1),
@@ -231,8 +231,8 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
         EI_val = self.EI_numeric
         s = sp.Symbol('s')
 
-        C1 = (-m_ba - m_ab - 0.5 * w * L**2) / L
-        M_hog = m_ab + C1 * s + 0.5 * w * s**2
+        C1 = (m_ba - (-m_ab) - 0.5 * w * L**2) / L
+        M_hog = -m_ab + C1 * s + 0.5 * w * s**2
         M_sag = -M_hog
         up = sp.integrate(M_sag / EI_val, s)  # A端固定, up0=0
         u_expr = sp.integrate(up, s)          # A端固定, u0=0
@@ -268,7 +268,7 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
 
         ax.plot([0, L], [0, 0], 'k-', lw=4, label='Beam')
         x = np.linspace(0, L, 200)
-        v_line = member_shear_curve(x, L, w, m_ab, m_ba)
+        v_line = member_shear_curve(x, L, w, -m_ab, m_ba)
         ax.plot(x, v_line * scale, 'b-', lw=2, label='SFD (kN)')
         ax.fill_between(x, 0, v_line * scale, color='blue', alpha=0.15)
 
@@ -298,15 +298,12 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
 
         ax.plot([0, L], [0, 0], 'k-', lw=4, label='Beam')
         x = np.linspace(0, L, 200)
-        # 梁上有均佈載重 -> 用拋物線；邊界值直接用兩端 raw 值即可
-        # (這是唯一一根樑,沒有"遠端負號"問題 — 那個問題只出現在
-        #  同一根水平桿件兩端都連著別的桿件、需要跟別人交界時；
-        #  這裡B端本身就是M=0,不需要額外轉換,已用剪力對過anastruct)
-        m_line = member_moment_curve(x, L, w, m_ab, m_ba)
+        # 統一規則(跟Case-02/03一致): 近端negate、遠端直接用
+        m_line = member_moment_curve(x, L, w, -m_ab, m_ba)
         ax.plot(x, m_line * scale, 'r--', lw=2, label='BMD (kN·m)')
         ax.fill_between(x, 0, m_line * scale, color='red', alpha=0.15)
 
-        ax.text(0, m_ab * scale - 0.3, f'{m_ab:.2f}', color='darkred',
+        ax.text(0, -m_ab * scale - 0.3, f'{m_ab:.2f}', color='darkred',
                 ha='center', fontweight='bold')
         ax.text(L, m_ba * scale - 0.3, f'{m_ba:.2f}', color='darkred',
                 ha='center', fontweight='bold')

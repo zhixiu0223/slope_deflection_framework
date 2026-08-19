@@ -70,11 +70,11 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         ax.annotate('', xy=(L1 - 0.3, -0.75), xytext=(L1 + 0.3, -0.75),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
-        ax.text(L1, -1.05, r'$\theta_B$', color='purple', fontsize=13, ha='center')
+        ax.text(L1, -1.05, r'$\theta_B$ (↻)', color='purple', fontsize=13, ha='center')
         ax.annotate('', xy=(Ltot - 0.3, -0.75), xytext=(Ltot + 0.3, -0.75),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
-        ax.text(Ltot, -1.05, r'$\theta_C$', color='purple', fontsize=13, ha='center')
+        ax.text(Ltot, -1.05, r'$\theta_C$ (↻)', color='purple', fontsize=13, ha='center')
 
         ax.set_xlim(-1.5, Ltot + 1.5)
         ax.set_ylim(-1.3, 1.0)
@@ -85,10 +85,10 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
     def build_moment_equations(self):
         EI, L1, L2, w1, w2 = self.EI, self.L1, self.L2, self.w1, self.w2
         thB, thC = self.theta_B, self.theta_C
-        FEM_AB = w1 * L1**2 / 12
-        FEM_BA = -w1 * L1**2 / 12
-        FEM_BC = w2 * L2**2 / 12
-        FEM_CB = -w2 * L2**2 / 12
+        FEM_AB = -w1 * L1**2 / 12
+        FEM_BA = w1 * L1**2 / 12
+        FEM_BC = -w2 * L2**2 / 12
+        FEM_CB = w2 * L2**2 / 12
         return {
             'M_{AB}': 2 * EI / L1 * thB + FEM_AB,
             'M_{BA}': 2 * EI / L1 * (2 * thB) + FEM_BA,
@@ -110,11 +110,11 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         L1, L2, w1, w2 = self.L1, self.L2, self.w1, self.w2
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
-        # 遠端要negate才是物理上連續的邊界值(已用剪力對過anastruct)
-        V_ab_0 = member_shear_curve(0.0, L1, w1, m_ab, -m_ba)
-        V_ab_L = member_shear_curve(L1, L1, w1, m_ab, -m_ba)
-        V_bc_0 = member_shear_curve(0.0, L2, w2, m_bc, -m_cb)
-        V_bc_L = member_shear_curve(L2, L2, w2, m_bc, -m_cb)
+        # 近端要negate才是物理上連續的邊界值(已用anastruct實際畫圖座標驗證過)
+        V_ab_0 = member_shear_curve(0.0, L1, w1, -m_ab, m_ba)
+        V_ab_L = member_shear_curve(L1, L1, w1, -m_ab, m_ba)
+        V_bc_0 = member_shear_curve(0.0, L2, w2, -m_bc, m_cb)
+        V_bc_L = member_shear_curve(L2, L2, w2, -m_bc, m_cb)
         R_A = -V_ab_0
         R_B = V_ab_L - V_bc_0
         R_C = V_bc_L
@@ -128,10 +128,10 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         ax.plot([0, Ltot], [0, 0], 'k-', lw=4)
 
         labels = [
-            (0, m_ab),
-            (L1, -m_ba),
-            (L1, m_bc),
-            (Ltot, -m_cb),
+            (0, -m_ab),
+            (L1, m_ba),
+            (L1, -m_bc),
+            (Ltot, m_cb),
         ]
         for x, val in labels:
             sign = 1 if val > 0 else -1
@@ -170,9 +170,9 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
             return sp.lambdify(s, u_expr, 'numpy')
 
         # AB跨: 近端A(固定,u=0,u'=0) -> 遠端B, AB跨自己有均佈載重w1
-        u_AB = transverse_u(m_ab, -m_ba, L1, w1, u0=0, up0=0)
-        # BC跨: 近端B(u=0,u'=theta_B已知,連續節點) -> 遠端C, BC跨有均佈載重w2
-        u_BC = transverse_u(m_bc, -m_cb, L2, w2, u0=0, up0=theta_B)
+        u_AB = transverse_u(-m_ab, m_ba, L1, w1, u0=0, up0=0)
+        # BC跨: 近端B(u=0,u'=-theta_B已知,連續節點) -> 遠端C, BC跨有均佈載重w2
+        u_BC = transverse_u(-m_bc, m_cb, L2, w2, u0=0, up0=-theta_B)
 
         scale = 80
         x1 = np.linspace(0, L1, 150)
@@ -211,12 +211,12 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
 
         ax.plot([0, Ltot], [0, 0], 'k-', lw=4, label='Beam')
         x1 = np.linspace(0, L1, 100)
-        v1 = member_shear_curve(x1, L1, w1, m_ab, -m_ba)
+        v1 = member_shear_curve(x1, L1, w1, -m_ab, m_ba)
         ax.plot(x1, v1 * scale, 'b-', lw=2, label='SFD (kN)')
         ax.fill_between(x1, 0, v1 * scale, color='blue', alpha=0.15)
 
         x2 = np.linspace(0, L2, 100)
-        v2 = member_shear_curve(x2, L2, w2, m_bc, -m_cb)
+        v2 = member_shear_curve(x2, L2, w2, -m_bc, m_cb)
         ax.plot(L1 + x2, v2 * scale, 'b-', lw=2)
         ax.fill_between(L1 + x2, 0, v2 * scale, color='blue', alpha=0.15)
 
@@ -264,19 +264,19 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         ax.plot([0, Ltot], [0, 0], 'k-', lw=4, label='Beam')
 
         x1 = np.linspace(0, L1, 200)
-        # 遠端(B)要negate才是物理連續的邊界值 — 已用剪力驗證過 (見上方 compute_reactions)
-        m1 = member_moment_curve(x1, L1, w1, m_ab, -m_ba)
+        # 近端要negate才是物理連續的邊界值 — 已用anastruct實際畫圖座標驗證過
+        m1 = member_moment_curve(x1, L1, w1, -m_ab, m_ba)
         ax.plot(x1, m1 * scale, 'r--', lw=2, label='BMD (kN·m)')
         ax.fill_between(x1, 0, m1 * scale, color='red', alpha=0.15)
 
         x2 = np.linspace(0, L2, 200)
-        m2 = member_moment_curve(x2, L2, w2, m_bc, -m_cb)
+        m2 = member_moment_curve(x2, L2, w2, -m_bc, m_cb)
         ax.plot(L1 + x2, m2 * scale, 'r--', lw=2)
         ax.fill_between(L1 + x2, 0, m2 * scale, color='red', alpha=0.15)
 
-        ax.text(0, m_ab * scale - 0.3, f'{m_ab:.2f}', color='darkred', ha='center', fontweight='bold')
-        self._label_interior_extremum(ax, x1, m1, L1, w1, m_ab, -m_ba, scale, x_offset=0)
-        self._label_interior_extremum(ax, x2, m2, L2, w2, m_bc, -m_cb, scale, x_offset=L1)
+        ax.text(0, -m_ab * scale - 0.3, f'{m_ab:.2f}', color='darkred', ha='center', fontweight='bold')
+        self._label_interior_extremum(ax, x1, m1, L1, w1, -m_ab, m_ba, scale, x_offset=0)
+        self._label_interior_extremum(ax, x2, m2, L2, w2, -m_bc, m_cb, scale, x_offset=L1)
         ax.text(Ltot, m_cb * scale - 0.3, f'{m_cb:.2f}', color='darkred', ha='center', fontweight='bold')
 
         ax.axvline(L1, color='gray', lw=0.6, zorder=0)
