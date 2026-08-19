@@ -16,9 +16,10 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
     C端沿用 Case-01 學過的「邊界條件 M=0」。
     """
 
-    def __init__(self, L1=5.0, L2=6.0, w1=15.0, w2=20.0):
+    def __init__(self, L1=5.0, L2=6.0, w1=15.0, w2=20.0, EI_numeric=15000.0):
         self.L1, self.L2, self.w1, self.w2 = L1, L2, w1, w2
         self.EI = sp.Symbol('EI', positive=True, real=True)
+        self.EI_numeric = EI_numeric  # 只用在變形圖的實際撓度計算
         self.theta_B, self.theta_C = sp.symbols('theta_B theta_C', real=True)
 
     def get_unknowns(self):
@@ -156,7 +157,7 @@ class TwoSpanBeamProblem(SlopeDeflectionProblem):
         Ltot = L1 + L2
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
-        EI_val = 15000.0
+        EI_val = self.EI_numeric
         theta_B = float(solution[self.theta_B].subs(self.EI, EI_val))
         s = sp.Symbol('s')
 

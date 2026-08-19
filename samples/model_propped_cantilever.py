@@ -14,9 +14,11 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
     邊界條件取代之前用慣的「節點力矩平衡」，是後面所有 Case 的基礎。
     """
 
-    def __init__(self, L=6.0, w=20.0):
+    def __init__(self, L=6.0, w=20.0, EI_numeric=15000.0):
         self.L, self.w = L, w
         self.EI = sp.Symbol('EI', positive=True, real=True)
+        self.EI_numeric = EI_numeric  # 只用在變形圖的實際撓度計算(彎矩本身跟EI無關,
+        # 因為單一材料/均勻EI的靜不定結構解方程式時EI會自動消掉,不需要它)
         self.theta_B = sp.Symbol('theta_B', real=True)
 
     def get_unknowns(self):
@@ -226,7 +228,7 @@ class PropChedCantileverProblem(SlopeDeflectionProblem):
         import sympy as sp
         L, w = self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
-        EI_val = 15000.0
+        EI_val = self.EI_numeric
         s = sp.Symbol('s')
 
         C1 = (-m_ba - m_ab - 0.5 * w * L**2) / L

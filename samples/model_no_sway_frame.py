@@ -25,9 +25,10 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
       的物理彎矩值本身相等，各自獨立按自己的規則畫就是對的。
     """
 
-    def __init__(self, H=4.0, L=6.0, w=24.0):
+    def __init__(self, H=4.0, L=6.0, w=24.0, EI_numeric=15000.0):
         self.H, self.L, self.w = H, L, w
         self.EI = sp.Symbol('EI', positive=True, real=True)
+        self.EI_numeric = EI_numeric  # 只用在變形圖的實際撓度計算
         self.theta_B, self.theta_C = sp.symbols('theta_B theta_C', real=True)
 
     def get_unknowns(self):
@@ -223,7 +224,7 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
         m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
 
-        EI_val = 15000.0  # 跟anastruct驗證模型用同一個EI數值,才能直接比對
+        EI_val = self.EI_numeric  # 跟anastruct驗證模型用同一個EI數值,才能直接比對
         s = sp.Symbol('s')
 
         def transverse_u(M_i, M_j, length, w_load, u0, up0):
