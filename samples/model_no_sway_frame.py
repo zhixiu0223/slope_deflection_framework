@@ -96,11 +96,11 @@ class NoSwayFrameProblem(SlopeDeflectionProblem):
         ax.annotate('', xy=(0.35, H + 0.35), xytext=(-0.35, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
-        ax.text(0, H + 0.75, r'$\theta_B$ (↻)', color='purple', fontsize=12, ha='center')
+        ax.text(0, H + 0.75, r'$\theta_B$', color='purple', fontsize=12, ha='center')
         ax.annotate('', xy=(L + 0.35, H + 0.35), xytext=(L - 0.35, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                      color='purple', lw=2))
-        ax.text(L, H + 0.75, r'$\theta_C$ (↻)', color='purple', fontsize=12, ha='center')
+        ax.text(L, H + 0.75, r'$\theta_C$', color='purple', fontsize=12, ha='center')
 
         ax.set_xlim(-2, L + 2)
         ax.set_ylim(-1, H + 1.5)
