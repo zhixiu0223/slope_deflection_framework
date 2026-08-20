@@ -70,11 +70,13 @@ class SwayFrameProblem(SlopeDeflectionProblem):
                                      color='purple', lw=2))
         ax.text(L, H + 1.3, r'$\theta_C$', color='purple', fontsize=12, ha='center')
 
-        # psi (側移角) 標示: 畫在柱身旁, 用水平雙箭頭示意side sway方向
-        ax.annotate('', xy=(-0.6, H / 2 + 0.3), xytext=(-0.6, H / 2 - 0.3),
+        # psi (側移角) 標示: 代表水平側移方向, 畫在梁跨中間下方(遠離其他標籤)，
+        # 箭頭指向水平(+x), 跟P同方向
+        mid_x = L / 2
+        ax.annotate('', xy=(mid_x + 0.6, H / 2), xytext=(mid_x - 0.6, H / 2),
                     arrowprops=dict(arrowstyle='->', color='darkorange', lw=1.8))
-        ax.text(-1.0, H / 2, r'$\psi=\Delta/H$', color='darkorange', fontsize=10,
-                ha='center', rotation=90)
+        ax.text(mid_x, H / 2 + 0.3, r'$\psi=\Delta/H$', color='darkorange', fontsize=10,
+                ha='center')
 
         ax.set_xlim(-2.2, L + 2)
         ax.set_ylim(-1, H + 2)
@@ -175,8 +177,8 @@ class SwayFrameProblem(SlopeDeflectionProblem):
             (0, H, 0, 1, m_ba),
             (0, H, 1, 0, -m_bc),
             (L, H, 1, 0, m_cb),
-            (L, H, 0, 1, -m_cd),
-            (L, 0, 0, 1, m_dc),
+            (L, H, 0, 1, m_cd),
+            (L, 0, 0, 1, -m_dc),
         ]
         for x, y, dx, dy, val in labels:
             perp_x, perp_y = -dy, dx
@@ -227,8 +229,18 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         u_CD = transverse_u(s_col, -m_dc, m_cd, H, 0.0, u0=0, up0=0)
 
         x_AB, y_AB = member_offset_curve(0, 0, 0, H, s_col, u_AB, scale)
-        x_BC, y_BC = member_offset_curve(0, H, L, H, s_beam, u_BC, scale)
+
+        # 梁BC的起點、終點要用柱頂「實際偏移後」的座標，不能假設柱頂還在
+        # x=0/x=L——柱子有側移，頂端已經橫向偏移過去了(這是這次抓到的bug：
+        # 梁原本固定用(0,H)->(L,H)當基準，沒有跟著柱頂的真實偏移量走，
+        # 造成梁跟柱在B、C兩個節點對不起來、畫出來斷開)
+        x_B_actual, y_B_actual = x_AB[-1], y_AB[-1]
+
         x_CD, y_CD = member_offset_curve(L, 0, L, H, s_col, u_CD, scale)
+        x_C_actual, y_C_actual = x_CD[-1], y_CD[-1]
+
+        x_BC, y_BC = member_offset_curve(x_B_actual, y_B_actual,
+                                          x_C_actual, y_C_actual, s_beam, u_BC, scale)
 
         ax.plot([0, 0], [0, H], '--', color='gray', lw=2, label='Original Structure')
         ax.plot([0, L], [H, H], '--', color='gray', lw=2)
