@@ -7,17 +7,18 @@ from sd_framework import SlopeDeflectionProblem
 class SwayFrameProblem(SlopeDeflectionProblem):
     """
     Case-04：側移單跨剛架 (Sway Single-Bay Frame)
-    柱AB、CD高度相同(H)、底端固定(A,D)；梁BC跨度L，無跨間載重；
-    B點承受水平集中載重P。跟Case-03(無側移)的差別只有一個：多了側移角
-    Δ這個自由度、多了一條剪力平衡方程式(ΣFx=0)。
+    柱AB、CD高度相同(H)、底端固定(A,D)；梁BC跨度L；B點承受水平集中
+    載重P，梁上可選擇加均佈載重w(預設0，即Case-04原本的題目；w>0時
+    變成Case-04.5：梁均佈載重+側向力的組合載重題，實務上很常見的
+    組合，柱身仍無側向載重)。跟Case-03(無側移)的差別：多了側移角Δ
+    這個自由度、多了一條剪力平衡方程式(ΣFx=0)。
 
     FEM慣例：近端負、遠端正(傳統教科書慣例，順時針為正)，跟Case-01/02/03統一。
-    本題FEM全部=0(沒有跨間載重)，這條慣例在數值上不受影響，但公式結構
-    仍照統一寫法(方便以後有跨間載重的變化題直接套用)。
+    w=0時FEM全部=0，這條慣例在數值上不受影響；w>0時梁的FEM才會真的用上。
     """
 
-    def __init__(self, H=4.0, L=6.0, P=12.0, EI_numeric=15000.0):
-        self.H, self.L, self.P = H, L, P
+    def __init__(self, H=4.0, L=6.0, P=12.0, w=0.0, EI_numeric=15000.0):
+        self.H, self.L, self.P, self.w = H, L, P, w
         self.EI = sp.Symbol('EI', positive=True, real=True)
         self.theta_B, self.theta_C, self.psi = sp.symbols('theta_B theta_C psi', real=True)
         self.EI_numeric = EI_numeric
@@ -26,10 +27,10 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         return {'\\theta_B': self.theta_B, '\\theta_C': self.theta_C, '\\psi': self.psi}
 
     def describe(self):
+        w_desc = (f"，**梁上均佈載重** $w={self.w}$ kN/m" if self.w else "，梁上無跨間載重(FEM=0)")
         return (f"**柱高** $H={self.H}$ m (兩柱等高)，**梁跨** $L={self.L}$ m，"
-                f"**B點水平集中載重** $P={self.P}$ kN\n\n"
-                f"**邊界條件：** A、D兩端固定 ($\\theta_A=\\theta_D=0$)，"
-                f"梁上無跨間載重(FEM=0)，柱身無側向載重")
+                f"**B點水平集中載重** $P={self.P}$ kN{w_desc}\n\n"
+                f"**邊界條件：** A、D兩端固定 ($\\theta_A=\\theta_D=0$)，柱身無側向載重")
 
     def describe_dof(self):
         return (f"A、D固定端轉角鎖死，不是未知量。B、C是梁柱交會的剛性節點，"
@@ -55,10 +56,17 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         ax.text(0, H + 0.3, 'B', fontsize=12, fontweight='bold', ha='center')
         ax.text(L, H + 0.3, 'C', fontsize=12, fontweight='bold', ha='center')
 
-        # 水平力P (畫在B點, 指向+x)
-        ax.annotate('', xy=(1.0, H), xytext=(0.0, H),
+        w = self.w
+        if w:
+            for xx in np.linspace(0.3, L - 0.3, 7):
+                ax.annotate('', xy=(xx, H + 0.05), xytext=(xx, H + 0.5),
+                            arrowprops=dict(arrowstyle='->', color='crimson', lw=1.2))
+            ax.text(L / 2, H + 0.75, f'$w={w}$ kN/m', color='crimson', ha='center', fontsize=10)
+
+        # 水平力P (畫在B點, 指向+x)——往下移一點，避免跟梁線、UDL箭頭重疊
+        ax.annotate('', xy=(1.0, H - 0.4), xytext=(0.0, H - 0.4),
                     arrowprops=dict(arrowstyle='->', color='red', lw=2.5))
-        ax.text(0.5, H + 0.35, f'$P={P}$ kN', color='red', ha='center', fontsize=11)
+        ax.text(1.15, H - 0.4, f'$P={P}$ kN', color='red', ha='left', va='center', fontsize=11)
 
         # theta_B, theta_C: 統一順時針假設方向(跟Case-03同一原則)
         ax.annotate('', xy=(0.35, H + 0.9), xytext=(-0.35, H + 0.9),
@@ -85,13 +93,15 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         ax.grid(True, linestyle='--', alpha=0.5)
 
     def build_moment_equations(self):
-        EI, H, L = self.EI, self.H, self.L
+        EI, H, L, w = self.EI, self.H, self.L, self.w
         thB, thC, psi = self.theta_B, self.theta_C, self.psi
+        FEM_BC = -w * L**2 / 12
+        FEM_CB = w * L**2 / 12
         return {
             'M_{AB}': 2 * EI / H * (thB - 3 * psi),
             'M_{BA}': 2 * EI / H * (2 * thB - 3 * psi),
-            'M_{BC}': 2 * EI / L * (2 * thB + thC),
-            'M_{CB}': 2 * EI / L * (thB + 2 * thC),
+            'M_{BC}': 2 * EI / L * (2 * thB + thC) + FEM_BC,
+            'M_{CB}': 2 * EI / L * (thB + 2 * thC) + FEM_CB,
             'M_{CD}': 2 * EI / H * (2 * thC - 3 * psi),
             'M_{DC}': 2 * EI / H * (thC - 3 * psi),
         }
@@ -119,7 +129,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
 
     def draw_sfd(self, ax, moments_val):
         from sd_framework import member_shear_curve, member_offset_curve
-        H, L = self.H, self.L
+        H, L, w = self.H, self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
         m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
@@ -136,7 +146,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         ax.fill(np.append(x1, [0, 0]), np.append(y1, [H, 0]), color='blue', alpha=0.15)
 
         s2 = np.linspace(0, L, 200)
-        v2 = member_shear_curve(s2, L, 0.0, -m_bc, m_cb)
+        v2 = member_shear_curve(s2, L, w, -m_bc, m_cb)
         x2, y2 = member_offset_curve(0, H, L, H, s2, v2, scale)
         ax.plot(x2, y2, 'b-', lw=2)
         ax.fill(np.append(x2, [L, 0]), np.append(y2, [H, H]), color='blue', alpha=0.15)
@@ -202,7 +212,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         return True
 
     def draw_deformed_shape(self, ax, moments_val, solution):
-        H, L = self.H, self.L
+        H, L, w = self.H, self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
         m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
@@ -224,7 +234,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         # 讓它自然積分出來的值就是側移量Δ，跟Case-03(無側移)不一樣
         u_AB = transverse_u(s_col, -m_ab, m_ba, H, 0.0, u0=0, up0=0)
         # 梁BC: 近端B(u=0,u'=-theta_B已知,連續節點) -> 遠端C
-        u_BC = transverse_u(s_beam, -m_bc, m_cb, L, 0.0, u0=0, up0=-theta_B)
+        u_BC = transverse_u(s_beam, -m_bc, m_cb, L, w, u0=0, up0=-theta_B)
         # 柱CD: 近端D(固定,u=0,u'=0) -> 遠端C
         u_CD = transverse_u(s_col, -m_dc, m_cd, H, 0.0, u0=0, up0=0)
 
@@ -264,7 +274,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
 
     def draw_bmd(self, ax, moments_val):
         from sd_framework import member_moment_curve, member_offset_curve
-        H, L = self.H, self.L
+        H, L, w = self.H, self.L, self.w
         m_ab, m_ba = moments_val['M_{AB}'], moments_val['M_{BA}']
         m_bc, m_cb = moments_val['M_{BC}'], moments_val['M_{CB}']
         m_cd, m_dc = moments_val['M_{CD}'], moments_val['M_{DC}']
@@ -281,7 +291,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         ax.fill(np.append(x1, [0, 0]), np.append(y1, [H, 0]), color='red', alpha=0.15)
 
         s2 = np.linspace(0, L, 200)
-        m2 = member_moment_curve(s2, L, 0.0, -m_bc, m_cb)
+        m2 = member_moment_curve(s2, L, w, -m_bc, m_cb)
         x2, y2 = member_offset_curve(0, H, L, H, s2, m2, scale)
         ax.plot(x2, y2, 'r--', lw=2)
         ax.fill(np.append(x2, [L, 0]), np.append(y2, [H, H]), color='red', alpha=0.15)
