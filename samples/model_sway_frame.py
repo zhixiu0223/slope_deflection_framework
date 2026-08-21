@@ -169,8 +169,16 @@ class SwayFrameProblem(SlopeDeflectionProblem):
                                  (x3[0], y3[0], v3[0], 'left'), (x3[-1], y3[-1], v3[-1], 'left')]:
             ax.text(xx, yy, f'{val:.1f}', color='darkblue', fontsize=8, ha=ha)
 
-        ax.set_xlim(-3, L + 3)
-        ax.set_ylim(-1, H + 2)
+        # 座標軸範圍自動依實際畫出來的內容(結構+SFD曲線+數字標籤)決定，
+        # 不用固定margin——載重變大、SFD突出去很多時，固定margin會裁切
+        # 掉圖形(這是這次抓到的實際bug)，改成动态抓x1,x2,x3,y1,y2,y3的
+        # 實際最大最小值再留一點邊界，這樣不管參數多大都不會裁到
+        all_x = np.concatenate([x1, x2, x3, [0, L]])
+        all_y = np.concatenate([y1, y2, y3, [0, H]])
+        pad_x = max(0.15 * (all_x.max() - all_x.min()), 1.0)
+        pad_y = max(0.15 * (all_y.max() - all_y.min()), 0.5)
+        ax.set_xlim(all_x.min() - pad_x, all_x.max() + pad_x)
+        ax.set_ylim(all_y.min() - pad_y, all_y.max() + pad_y)
         ax.set_aspect('equal')
         ax.set_title('Figure: Shear Force Diagram (SFD) [kN]')
         ax.grid(True, linestyle='--', alpha=0.4)
@@ -317,8 +325,14 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         ax.text(x3[-1], y3[-1], f'{m3[-1]:.1f}', color='darkred', fontsize=8, ha='left', va='bottom')
         ax.text(x3[0], y3[0], f'{m3[0]:.1f}', color='darkred', fontsize=8, ha='left', va='top')
 
-        ax.set_xlim(-4, L + 4)
-        ax.set_ylim(-1, H + 3)
+        # 座標軸範圍自動依實際畫出來的內容決定，理由同draw_sfd——固定margin
+        # 在載重變大、BMD突出去很多時會裁到圖形，改成動態抓實際最大最小值
+        all_x = np.concatenate([x1, x2, x3, [0, L]])
+        all_y = np.concatenate([y1, y2, y3, [0, H]])
+        pad_x = max(0.15 * (all_x.max() - all_x.min()), 1.0)
+        pad_y = max(0.15 * (all_y.max() - all_y.min()), 0.5)
+        ax.set_xlim(all_x.min() - pad_x, all_x.max() + pad_x)
+        ax.set_ylim(all_y.min() - pad_y, all_y.max() + pad_y)
         ax.set_aspect('equal')
         ax.set_title('Figure: Bending Moment Diagram (BMD) [kN·m]')
         ax.grid(True, linestyle='--', alpha=0.4)
