@@ -63,20 +63,25 @@ class SwayFrameProblem(SlopeDeflectionProblem):
                             arrowprops=dict(arrowstyle='->', color='crimson', lw=1.2))
             ax.text(L / 2, H + 0.75, f'$w={w}$ kN/m', color='crimson', ha='center', fontsize=10)
 
-        # 水平力P (畫在B點, 指向+x)——往下移一點，避免跟梁線、UDL箭頭重疊
-        ax.annotate('', xy=(1.0, H - 0.4), xytext=(0.0, H - 0.4),
+        # 水平力P: 畫在B點「左邊」，箭頭指向B(不是畫在桿件上往右伸出去，
+        # 那樣看起來像是沿著梁在推、容易誤會)
+        ax.annotate('', xy=(0.0, H), xytext=(-1.1, H),
                     arrowprops=dict(arrowstyle='->', color='red', lw=2.5))
-        ax.text(1.15, H - 0.4, f'$P={P}$ kN', color='red', ha='left', va='center', fontsize=11)
+        ax.text(-1.2, H, f'$P={P}$ kN', color='red', ha='right', va='center', fontsize=11)
 
-        # theta_B, theta_C: 統一順時針假設方向(跟Case-03同一原則)
-        ax.annotate('', xy=(0.35, H + 0.9), xytext=(-0.35, H + 0.9),
+        # theta_B, theta_C: 統一順時針假設方向(跟Case-03同一原則)。
+        # 位置移到節點外側(B在左邊、C在右邊，對稱)，顏色統一用黑色粗體
+        # (跟外力的紅色明確區分：紅色=外力，黑色粗體=自由度)
+        ax.annotate('', xy=(-0.9, H + 0.35), xytext=(-1.5, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
-                                     color='purple', lw=2))
-        ax.text(0, H + 1.3, r'$\theta_B$', color='purple', fontsize=12, ha='center')
-        ax.annotate('', xy=(L + 0.35, H + 0.9), xytext=(L - 0.35, H + 0.9),
+                                     color='black', lw=2))
+        ax.text(-1.9, H + 0.35, r'$\theta_B$', color='black', fontweight='bold',
+                fontsize=12, ha='right', va='center')
+        ax.annotate('', xy=(L + 1.5, H + 0.35), xytext=(L + 0.9, H + 0.35),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
-                                     color='purple', lw=2))
-        ax.text(L, H + 1.3, r'$\theta_C$', color='purple', fontsize=12, ha='center')
+                                     color='black', lw=2))
+        ax.text(L + 1.9, H + 0.35, r'$\theta_C$', color='black', fontweight='bold',
+                fontsize=12, ha='left', va='center')
 
         # psi (側移角) 標示: 代表水平側移方向, 畫在梁跨中間下方(遠離其他標籤)，
         # 箭頭指向水平(+x), 跟P同方向
@@ -86,7 +91,7 @@ class SwayFrameProblem(SlopeDeflectionProblem):
         ax.text(mid_x, H / 2 + 0.3, r'$\psi=\Delta/H$', color='darkorange', fontsize=10,
                 ha='center')
 
-        ax.set_xlim(-2.2, L + 2)
+        ax.set_xlim(-3.2, L + 3.2)
         ax.set_ylim(-1, H + 2)
         ax.set_aspect('equal')
         ax.set_title('Figure 1: Sway Frame — Geometry, Load & DOF')
