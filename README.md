@@ -96,3 +96,7 @@ GitHub 網頁上開 `.ipynb` 檔案反而看得到存檔的完整輸出。細節
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-04.5-sway-frame-with-udl.ipynb)
 * [Case-04.5：wget版本 側移單垮鋼架-加梁重](notebooks/Case-04.5-sway-frame-with-udl-wget.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-04.5-sway-frame-with-udl-wget.ipynb)
+* [Case-05：二層對稱剛架](notebooks/Case-05-two-story-frame.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-05-two-story-frame.ipynb)
+* [Case-05：wget版本-二層對稱剛架](notebooks/Case-05-two-story-frame-wget.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-05-two-story-frame-wget.ipynb)
