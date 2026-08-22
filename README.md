@@ -100,3 +100,7 @@ GitHub 網頁上開 `.ipynb` 檔案反而看得到存檔的完整輸出。細節
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-05-two-story-frame.ipynb)
 * [Case-05：wget版本-二層對稱剛架](notebooks/Case-05-two-story-frame-wget.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-05-two-story-frame-wget.ipynb)
+* [Case-06:二層剛架 + 側移](notebooks/Case-06-two-story-sway-frame.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-06-two-story-sway-frame.ipynb)
+* [Case-06:wget版本二層剛架 + 側移](notebooks/Case-06-two-story-sway-frame-wget.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-06-two-story-sway-frame-wget.ipynb)
