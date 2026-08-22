@@ -76,14 +76,19 @@ class TwoStoryFrameProblem(SlopeDeflectionProblem):
         ax.text(L / 2, Htot + 0.65, f'$w_2={w2}$ kN/m', color='crimson', ha='center', fontsize=9)
 
         # DOF箭頭: 統一順時針、黑色粗體，放在節點外側(B,C在左邊外側; D,E在右邊外側)
+        # 修正: 上一版side的正負號算反了，箭頭反而畫到構架內側、擠在一起，
+        # 這次直接照Case-04已經驗證過的座標寫法(不共用公式，避免再算錯)
         for x, y, name, side in [(0, H1, r'$\theta_B$', -1), (0, Htot, r'$\theta_C$', -1),
                                    (L, Htot, r'$\theta_D$', 1), (L, H1, r'$\theta_E$', 1)]:
-            x0, x1 = (x - 0.9 * side, x - 0.3 * side) if side < 0 else (x + 0.3 * side, x + 0.9 * side)
-            rad = -0.5
-            ax.annotate('', xy=(x1, y), xytext=(x0, y),
-                        arrowprops=dict(arrowstyle='->', connectionstyle=f'arc3,rad={rad}',
+            if side < 0:  # 左側(B,C): 箭頭從外面(更遠)畫向裡面(靠近節點)
+                x_far, x_near = x - 1.5, x - 0.9
+            else:  # 右側(D,E): 箭頭從裡面(靠近節點)畫向外面(更遠)
+                x_far, x_near = x + 1.5, x + 0.9
+            xytext_x, xy_x = (x_far, x_near) if side < 0 else (x_near, x_far)
+            ax.annotate('', xy=(xy_x, y), xytext=(xytext_x, y),
+                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=-0.5',
                                          color='black', lw=1.6))
-            ax.text(x - 1.2 * side, y, name, color='black', fontweight='bold',
+            ax.text(x_far + 0.4 * side, y, name, color='black', fontweight='bold',
                     fontsize=10, ha='right' if side < 0 else 'left', va='center')
 
         ax.set_xlim(-2.6, L + 2.6)
@@ -201,6 +206,18 @@ class TwoStoryFrameProblem(SlopeDeflectionProblem):
             ax.text(xs[0], ys[0], f'{m[0]:.1f}', color='darkred', fontsize=7)
             ax.text(xs[-1], ys[-1], f'{m[-1]:.1f}', color='darkred', fontsize=7)
             all_x.extend(xs); all_y.extend(ys)
+
+            # 跨內極值(只有梁BE、CD這種有均佈載重的桿件才會在跨內出現極值，
+            # 柱子沒有跨間載重、極值一定在端點，不用另外標)
+            if w_load:
+                i_peak = int(np.argmin(m)) if m[len(m) // 2] < 0 else int(np.argmax(m))
+                s_peak = s[i_peak]
+                offset = -14 if ys[i_peak] <= (y0 + y1) / 2 else 14
+                ax.annotate(f'{m[i_peak]:.1f} (s={s_peak:.2f}m)',
+                            xy=(xs[i_peak], ys[i_peak]), fontsize=7.5, color='darkred',
+                            fontweight='bold', ha='center',
+                            xytext=(0, offset), textcoords='offset points',
+                            arrowprops=dict(arrowstyle='-', color='darkred', lw=0.6))
 
         all_x, all_y = np.array(all_x), np.array(all_y)
         pad_x = max(0.15 * (all_x.max() - all_x.min()), 1.0)
