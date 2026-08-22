@@ -104,3 +104,7 @@ GitHub 網頁上開 `.ipynb` 檔案反而看得到存檔的完整輸出。細節
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-06-two-story-sway-frame.ipynb)
 * [Case-06:wget版本二層剛架 + 側移](notebooks/Case-06-two-story-sway-frame-wget.ipynb)
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-06-two-story-sway-frame-wget.ipynb)
+* [Case-06.5:二層剛架+側移 / 梁重+側向力](notebooks/Case-06.5-two-story-sway-with-udl.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-06.5-two-story-sway-with-udl.ipynb)
+* [Case-06.5:wget版本-二層剛架+側移 / 梁重+側向力](notebooks/Case-06.5-two-story-sway-with-udl-wget.ipynb)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/zhixiu0223/slope_deflection_framework/blob/main/notebooks/Case-06.5-two-story-sway-with-udl-wget.ipynb)
