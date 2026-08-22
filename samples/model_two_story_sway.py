@@ -313,6 +313,7 @@ class TwoStorySwayFrameProblem(SlopeDeflectionProblem):
         EI_val = self.EI_numeric
         thB = float(solution[self.theta_B].subs(self.EI, EI_val))
         thC = float(solution[self.theta_C].subs(self.EI, EI_val))
+        thE = float(solution[self.theta_E].subs(self.EI, EI_val))
 
         def transverse_u(s_arr, M_i, M_j, length, w_load, u0, up0):
             C1 = (M_j - M_i - 0.5 * w_load * length**2) / length
@@ -333,9 +334,13 @@ class TwoStorySwayFrameProblem(SlopeDeflectionProblem):
         x_E_actual, y_E_actual = x_FE[-1], y_FE[-1]
 
         s_BC = np.linspace(0, H2, 60)
-        u_BC = transverse_u(s_BC, -mv['M_{BC}'], mv['M_{CB}'], H2, 0.0, u0=0, up0=0)
+        # 近端B不是固定端(A,F才是)，B有真實轉角theta_B，要用-theta_B當
+        # 邊界條件的斜率(-負號跟梁的規則一致)——已用anastruct實際位移
+        # 逐點驗證過，up0=0(當B是固定端)是bug，up0=+theta_B也不對，
+        # 精確吻合的是up0=-theta_B
+        u_BC = transverse_u(s_BC, -mv['M_{BC}'], mv['M_{CB}'], H2, 0.0, u0=0, up0=-thB)
         s_ED = np.linspace(0, H2, 60)
-        u_ED = transverse_u(s_ED, -mv['M_{ED}'], mv['M_{DE}'], H2, 0.0, u0=0, up0=0)
+        u_ED = transverse_u(s_ED, -mv['M_{ED}'], mv['M_{DE}'], H2, 0.0, u0=0, up0=-thE)
         x_BC, y_BC = member_offset_curve(x_B_actual, y_B_actual, x_B_actual, y_B_actual + H2,
                                           s_BC, u_BC, scale)
         x_ED, y_ED = member_offset_curve(x_E_actual, y_E_actual, x_E_actual, y_E_actual + H2,
